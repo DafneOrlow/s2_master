@@ -613,7 +613,6 @@ Vint0_noWater:
 	; In two-player mode, we have to update the sprite table
 	; even during a lag frame so that the top half of the screen
 	; shows the correct sprites.
-	tst.w	(Two_player_mode).w
 	beq.s	++
 
 	; Update V-Scroll.
@@ -4288,26 +4287,7 @@ TitleScreen:
 	; to the Nemesis decompressor.
 	move	#$2700,sr
 
-	; Load assets while the above text is being displayed.
-	move.l	#vdpComm(tiles_to_bytes(ArtTile_ArtNem_Title),VRAM,WRITE),(VDP_control_port).l
-	lea	(ArtNem_Title).l,a0
-	bsr.w	NemDec
 
-	move.l	#vdpComm(tiles_to_bytes(ArtTile_ArtNem_TitleSprites),VRAM,WRITE),(VDP_control_port).l
-	lea	(ArtNem_TitleSprites).l,a0
-	bsr.w	NemDec
-
-	move.l	#vdpComm(tiles_to_bytes(ArtTile_ArtNem_MenuJunk),VRAM,WRITE),(VDP_control_port).l
-	lea	(ArtNem_MenuJunk).l,a0
-	bsr.w	NemDec
-
-	move.l	#vdpComm(tiles_to_bytes(ArtTile_ArtNem_Player1VS2),VRAM,WRITE),(VDP_control_port).l
-	lea	(ArtNem_Player1VS2).l,a0
-	bsr.w	NemDec
-
-	move.l	#vdpComm(tiles_to_bytes(ArtTile_ArtNem_FontStuff_TtlScr),VRAM,WRITE),(VDP_control_port).l
-	lea	(ArtNem_FontStuff).l,a0
-	bsr.w	NemDec
 
 	; Clear some variables.
 	move.b	#0,(Last_star_pole_hit).w
@@ -4404,12 +4384,12 @@ TitleScreen:
 	clr.w	(Ctrl_1).w
 
 	; Load the object responsible for the intro animation.
-	move.b	#ObjID_TitleIntro,(IntroSonic+id).w
+
 	move.b	#2,(IntroSonic+subtype).w
 
 	; Run it for a frame, so that it initialises.
-	jsr	(RunObjects).l
-	jsr	(BuildSprites).l
+;	jsr	(RunObjects).l
+;	jsr	(BuildSprites).l
 
 	; Load some standard sprites.
 	moveq	#PLCID_Std1,d0
@@ -4493,7 +4473,6 @@ TitleScreen_Loop:
 
 	; If the intro is still playing, then don't let the start button
 	; begin the game.
-	tst.b	(IntroSonic+obj0e_intro_complete).w
 	beq.w	TitleScreen_Loop
 
 	; If the start button has not been pressed, then loop back and keep
@@ -4927,7 +4906,7 @@ Level_TtlCard:
 	bsr.w	LevelSizeLoad
 	jsrto	JmpTo_DeformBgLayer
 	clr.w	(Vscroll_Factor_FG).w
-	move.w	#-screen_height,(Vscroll_Factor_P2_FG).w
+	move.w	#-224,(Vscroll_Factor_P2_FG).w
 
 	clearRAM Horiz_Scroll_Buf,Horiz_Scroll_Buf+HorizontalScrollBuffer.len
 
@@ -5282,12 +5261,12 @@ MoveWater:
 	bhs.s	+
 	tst.w	d0
 	bpl.s	+
-	move.b	#screen_height-1,(Hint_counter_reserve+1).w	; H-INT every 224th scanline
+	move.b	#224-1,(Hint_counter_reserve+1).w	; H-INT every 224th scanline
 	move.b	#1,(Water_fullscreen_flag).w
 +
-	cmpi.w	#screen_height-1,d0
+	cmpi.w	#224-1,d0
 	blo.s	+
-	move.w	#screen_height-1,d0
+	move.w	#224-1,d0
 +
 	move.b	d0,(Hint_counter_reserve+1).w	; H-INT every d0 scanlines
 ; loc_456A:
@@ -10498,22 +10477,16 @@ ObjDA_Init:
 	jsrto	JmpTo_Adjust2PArtPointer
 	move.b	#0,render_flags(a0)
 	move.b	#60,width_pixels(a0)
-	move.w	#spriteScreenPositionXCentered(0),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-48),y_pixel(a0)
+	move.w	#$80+320/2,x_pixel(a0)
+	move.w	#$80+64,y_pixel(a0)
 
 JmpTo2_DisplaySprite ; JmpTo
 	jmp	(DisplaySprite).l
 ; ===========================================================================
-objda_make_x_positions macro
-	irp pos,ALLARGS
-	dc.w  spriteScreenPositionXCentered(pos)
-	endm
-    endm
-
 ; word_7AB2:
 ObjDA_XPositions:
-	objda_make_x_positions -10, 10, -30, 30, -50, 50, -70, 70, -90, 90, -110, 110, -130, 130, -150
-
+	dc.w  $116, $12A, $102,	$13E,  $EE, $152,  $DA,	$166
+	dc.w   $C6, $17A,  $B2,	$18E,  $9E, $1A2,  $8A; 8
 ; ===========================================================================
 
 loc_7AD0:
@@ -10539,9 +10512,9 @@ loc_7AD0:
 	move.w	(a2)+,x_pixel(a1)
 	tst.b	d2
 	beq.s	+
-	subi.w	#10,x_pixel(a1)
+	subi.w	#$A,x_pixel(a1)
 +
-	move.w	#spriteScreenPositionYCentered(-32),y_pixel(a1)
+	move.w	#$D0,y_pixel(a1)
 	move.b	#4,mapping_frame(a1)
 	move.b	#6,routine(a1)
 	move.l	#ObjDA_MapUnc_7CB6,mappings(a1)
@@ -11003,18 +10976,14 @@ Obj21_Index:	offsetTable
 		offsetTableEntry.w Obj21_Init	; 0
 		offsetTableEntry.w Obj21_Main	; 2
 ; ---------------------------------------------------------------------------
-obj21_make_position macro x,y
-	dc.w spriteScreenPositionXCentered(x), spriteScreenPositionYCentered(y)
-    endm
-
 ; word_80D0:
 Obj21_PositionTable:
-	;                     x, y
-	obj21_make_position -48,88
-	obj21_make_position -48,64
-	obj21_make_position -64,88
-	obj21_make_position -48,88
-	obj21_make_position -48,88
+	;      x,    y
+	dc.w $F0, $148
+	dc.w $F0, $130
+	dc.w $E0, $148
+	dc.w $F0, $148
+	dc.w $F0, $148
 ; ===========================================================================
 ; loc_80E4:
 Obj21_Init:
@@ -14446,8 +14415,8 @@ textLoc function col,line,(($80 * line) + (2 * col))
 
 ; intro text pointers (one intro screen)
 vram_pnt := VRAM_TtlScr_Plane_A_Name_Table
-off_B2B0: creditsPtrs	byte_BD1A,textLoc($0F,$09), byte_BCEE,textLoc($11,$0C), \
-			byte_BCF6,textLoc($03,$0F), byte_BCE9,textLoc($12,$12)
+off_B2B0: creditsPtrs	byte_BD1A,textLoc($0A,$09), byte_BCEE,textLoc($0B,$0C), \
+			byte_BCF6,textLoc($03,$0F), byte_BCE9,textLoc($0C,$12)
 
 ; credits screen pointer table
 off_B2CA:
@@ -14695,8 +14664,8 @@ LevelSizeLoad:
 	move.l	d0,(Camera_Min_Y_pos_target).w	; Also sets Camera_Max_Y_pos_target.
 	move.l	d0,(Tails_Min_Y_pos).w		; Also sets Tails_Max_Y_pos.
 	move.w	#$1010,(Horiz_block_crossed_flag).w
-	move.w	#(screen_height/2)-16,(Camera_Y_pos_bias).w
-	move.w	#(screen_height/2)-16,(Camera_Y_pos_bias_P2).w
+	move.w	#(224/2)-16,(Camera_Y_pos_bias).w
+	move.w	#(224/2)-16,(Camera_Y_pos_bias_P2).w
 	bra.w	+
 ; ===========================================================================
 ; ----------------------------------------------------------------------------
@@ -15442,11 +15411,11 @@ SwScrl_EHZ_2P:
 	; Update the background's vertical scrolling.
 	moveq	#0,d0
 	move.w	d0,(Vscroll_Factor_P2_BG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_BG).w
+	subi.w	#224,(Vscroll_Factor_P2_BG).w
 
 	; Update the foregrounds's vertical scrolling.
 	move.w	(Camera_Y_pos_P2).w,(Vscroll_Factor_P2_FG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_FG).w
+	subi.w	#224,(Vscroll_Factor_P2_FG).w
 
 	; Only allow the screen to vertically scroll two pixels at a time.
 	andi.l	#$FFFEFFFE,(Vscroll_Factor_P2).w
@@ -15455,7 +15424,7 @@ SwScrl_EHZ_2P:
 	; This creates an elaborate parallax effect.
 	; Tails' screen is slightly taller, to fill the gap between the two
 	; screens.
-	lea	(Horiz_Scroll_Buf+(screen_height/2-4)*2*2).w,a1
+	lea	(Horiz_Scroll_Buf+(112-4)*2*2).w,a1
 	move.w	(Camera_X_pos_P2).w,d0
 	; Do 11+4 lines.
 	move.w	#11+4-1,d1
@@ -15571,7 +15540,7 @@ SwScrl_WZ:
 	; Update the background's (and foreground's) horizontal scrolling.
 	; This is very basic: there is no parallax effect here.
 	lea	(Horiz_Scroll_Buf).w,a1
-	move.w	#screen_height-1,d1
+	move.w	#224-1,d1
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -15603,7 +15572,7 @@ SwScrl_MTZ:
 	; Update the background's (and foreground's) horizontal scrolling.
 	; This is very basic: there is no parallax effect here.
 	lea	(Horiz_Scroll_Buf).w,a1
-	move.w	#screen_height-1,d1
+	move.w	#224-1,d1
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -15669,7 +15638,7 @@ SwScrl_WFZ:
 	bcc.s	.seg_loop		; Branch if not
 
 	neg.w	d1			; d1 = number of lines to draw in this segment
-	move.w	#screen_height-1,d2		; Number of rows in hscroll buffer
+	move.w	#224-1,d2		; Number of rows in hscroll buffer
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -16024,7 +15993,7 @@ HTZ_Screen_Shake:
 	; Update the background's (and foreground's) horizontal scrolling.
 	; This is very basic: there is no parallax effect here.
 	lea	(Horiz_Scroll_Buf).w,a1
-	move.w	#screen_height-1,d1
+	move.w	#224-1,d1
 	move.w	(Camera_X_pos).w,d0
 	add.w	d2,d0
 	neg.w	d0
@@ -16086,11 +16055,11 @@ SwScrl_HTZ_2P:
 	; Update the background's vertical scrolling.
 	moveq	#0,d0
 	move.w	d0,(Vscroll_Factor_P2_BG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_BG).w
+	subi.w	#224,(Vscroll_Factor_P2_BG).w
 
 	; Update the foreground's vertical scrolling.
 	move.w	(Camera_Y_pos_P2).w,(Vscroll_Factor_P2_FG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_FG).w
+	subi.w	#224,(Vscroll_Factor_P2_FG).w
 
 	; Only allow the screen to vertically scroll two pixels at a time.
 	andi.l	#$FFFEFFFE,(Vscroll_Factor_P2).w
@@ -16284,7 +16253,7 @@ SwScrl_OOZ:
 	; Curiously, Oil Ocean Zone fills 'Horiz_Scroll_Buf' starting from
 	; the end and working backwards towards the beginning, unlike other
 	; zones.
-	lea	(Horiz_Scroll_Buf+screen_height*2*2).w,a1
+	lea	(Horiz_Scroll_Buf+224*2*2).w,a1
 
 	; Set up the foreground part of the horizontal scroll value.
 	move.w	(Camera_X_pos).w,d0
@@ -16307,7 +16276,7 @@ SwScrl_OOZ:
 	moveq	#0,d1
 +
 	; This will keep track of how many lines we have left to output.
-	move.w	#screen_height-1,d6
+	move.w	#224-1,d6
 
 	; Do the factory part of the background.
 	add.w	d6,d1
@@ -16571,7 +16540,7 @@ SwScrl_MCZ:
 
 	neg.w	d1			; d1 = number of lines to draw in this segment
 	subq.w	#2,a2
-	move.w	#screen_height-1,d2		; Number of rows in hscroll buffer
+	move.w	#224-1,d2		; Number of rows in hscroll buffer
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -16815,11 +16784,11 @@ SwScrl_MCZ2P_RowHeights:
 
 	; Update the background's vertical scrolling.
 	move.w	d0,(Vscroll_Factor_P2_BG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_BG).w
+	subi.w	#224,(Vscroll_Factor_P2_BG).w
 
 	; Update the foreground's vertical scrolling.
 	move.w	(Camera_Y_pos_P2).w,(Vscroll_Factor_P2_FG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_FG).w
+	subi.w	#224,(Vscroll_Factor_P2_FG).w
 
 	; Only allow the screen to vertically scroll two pixels at a time.
 	andi.l	#$FFFEFFFE,(Vscroll_Factor_P2).w
@@ -16984,7 +16953,7 @@ SwScrl_CNZ:
 
 	neg.w	d1			; d1 = number of lines to draw in this segment
 	subq.w	#2,a2
-	move.w	#screen_height-1,d2		; Number of rows in hscroll buffer
+	move.w	#224-1,d2		; Number of rows in hscroll buffer
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -17121,11 +17090,11 @@ SwScrl_CNZ_2P:
 
 	; Update the background's vertical scrolling.
 	move.w	d0,(Vscroll_Factor_P2_BG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_BG).w
+	subi.w	#224,(Vscroll_Factor_P2_BG).w
 
 	; Update the foreground's vertical scrolling.
 	move.w	(Camera_Y_pos_P2).w,(Vscroll_Factor_P2_FG).w
-	subi.w	#screen_height,(Vscroll_Factor_P2_FG).w
+	subi.w	#224,(Vscroll_Factor_P2_FG).w
 
 	; Only allow the screen to vertically scroll two pixels at a time.
 	andi.l	#$FFFEFFFE,(Vscroll_Factor_P2).w
@@ -17305,7 +17274,7 @@ SwScrl_CPZ:
 	lea	(Horiz_Scroll_Buf).w,a1
 
     if fixBugs
-	move.w	#screen_height/block_height-1,d1
+	move.w	#224/16-1,d1
     else
 	; The '+1' is so that, if one block is partially-offscreen at the
 	; top, then another will fill the gap at the bottom of the screen.
@@ -17313,7 +17282,7 @@ SwScrl_CPZ:
 	; bounds-checking. This was likely a deliberate optimisation. Still,
 	; it's possible to avoid this without any performance penalty with a
 	; little extra code. See below.
-	move.w	#screen_height/block_height+1-1,d1
+	move.w	#224/16+1-1,d1
     endif
 
 	; Set up the foreground part of the horizontal scroll value.
@@ -17557,7 +17526,7 @@ SwScrl_DEZ:
 
 	neg.w	d1			; d1 = number of lines to draw in this segment
 	subq.w	#2,a2
-	move.w	#screen_height-1,d2		; Number of rows in hscroll buffer
+	move.w	#224-1,d2		; Number of rows in hscroll buffer
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -17784,7 +17753,7 @@ SwScrl_ARZ:
 	neg.w	d1		; d1 now contains how many pixels of the row is currently on-screen
 	subq.w	#2,a2		; Get correct row speed
 
-	move.w	#screen_height-1,d2 	; Height of screen
+	move.w	#224-1,d2 	; Height of screen
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0		; Store FG X-pos in upper 16-bits...
@@ -17873,7 +17842,7 @@ SwScrl_SCZ:
 	; Update the background's (and foreground's) horizontal scrolling.
 	; This is very basic: there is no parallax effect here.
 	lea	(Horiz_Scroll_Buf).w,a1
-	move.w	#screen_height-1,d1
+	move.w	#224-1,d1
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -17902,7 +17871,7 @@ SwScrl_Minimal:
 	; Update the background's (and foreground's) horizontal scrolling.
 	; This is very basic: there is no parallax effect here.
 	lea	(Horiz_Scroll_Buf).w,a1
-	move.w	#screen_height-1,d1
+	move.w	#224-1,d1
 	move.w	(Camera_X_pos).w,d0
 	neg.w	d0
 	swap	d0
@@ -17920,7 +17889,7 @@ SwScrl_HPZ_Continued:
 	lea	(Horiz_Scroll_Buf).w,a1
 
     if fixBugs
-	move.w	#screen_height/block_height-1,d1
+	move.w	#224/16-1,d1
     else
 	; The '+1' is so that, if one block is partially-offscreen at the
 	; top, then another will fill the gap at the bottom of the screen.
@@ -17928,7 +17897,7 @@ SwScrl_HPZ_Continued:
 	; bounds-checking. This was likely a deliberate optimisation. Still,
 	; it's possible to avoid this without any performance penalty with a
 	; little extra code. See below.
-	move.w	#screen_height/block_height+1-1,d1
+	move.w	#224/16+1-1,d1
     endif
 
 	; Set up the foreground part of the horizontal scroll value.
@@ -18067,7 +18036,7 @@ ScrollHoriz:
 ; loc_D732:
 .checkIfShouldScroll:
 	sub.w	(a1),d0
-	subi.w	#(screen_width/2)-16,d0		; is the player less than 144 pixels from the screen edge?
+	subi.w	#(320/2)-16,d0		; is the player less than 144 pixels from the screen edge?
 	blt.s	.scrollLeft	; if he is, scroll left
 	subi.w	#16,d0		; is the player more than 159 pixels from the screen edge?
 	bge.s	.scrollRight	; if he is, scroll right
@@ -18171,7 +18140,7 @@ ScrollVerti:
 ; ===========================================================================
 ; loc_D7C4:
 .decideScrollType:
-	cmpi.w	#(screen_height/2)-16,d3	; is the camera bias normal?
+	cmpi.w	#(224/2)-16,d3	; is the camera bias normal?
 	bne.s	.doScroll_slow	; if not, branch
 	mvabs.w	inertia(a0),d1	; get player ground velocity, force it to be positive
 	cmpi.w	#$800,d1	; is the player travelling very fast?
@@ -18568,21 +18537,21 @@ LoadTilesAsYouMove:
 
 	move.b	#0,(Screen_redraw_flag).w
 
-	moveq	#-block_width,d4	; X (relative to camera)
-	moveq	#(1+screen_height/block_height+1)-1,d6 ; Cover the screen, plus an extra row at the top and bottom.
+	moveq	#-16,d4	; X (relative to camera)
+	moveq	#(1+224/16+1)-1,d6 ; Cover the screen, plus an extra row at the top and bottom.
 ; loc_DACE:
 Draw_All:
 	; Redraw the whole screen.
 	movem.l	d4-d6,-(sp)
-	moveq	#-block_width,d5	; X (relative)
+	moveq	#-16,d5	; X (relative)
 	move.w	d4,d1
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
 	move.w	d1,d4
-	moveq	#-block_width,d5	; X (relative)
-	bsr.w	DrawBlockRow		; draw the current row
+	moveq	#-16,d5	; X (relative)
+	bsr.w	DrawBlockRow	; draw the current row
 	movem.l	(sp)+,d4-d6
-	addi.w	#block_height,d4	; move onto the next row
-	dbf	d6,Draw_All		; repeat for all rows
+	addi.w	#16,d4		; move onto the next row
+	dbf	d6,Draw_All	; repeat for all rows
 
 	move.b	#0,(Scroll_flags_copy).w
 
@@ -18595,38 +18564,38 @@ Draw_FG:
 
 	bclr	#scroll_flag_fg_up,(a2)	; has the level scrolled up?
 	beq.s	+			; if not, branch
-	moveq	#-block_height,d4
-	moveq	#-block_width,d5
+	moveq	#-16,d4
+	moveq	#-16,d5
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4
-	moveq	#-block_width,d5
+	moveq	#-16,d4
+	moveq	#-16,d5
 	bsr.w	DrawBlockRow	; redraw upper row
 +
 	bclr	#scroll_flag_fg_down,(a2)	; has the level scrolled down?
 	beq.s	+			; if not, branch
-	move.w	#screen_height,d4
-	moveq	#-block_width,d5
+	move.w	#224,d4
+	moveq	#-16,d5
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#screen_height,d4
-	moveq	#-block_width,d5
+	move.w	#224,d4
+	moveq	#-16,d5
 	bsr.w	DrawBlockRow	; redraw bottom row
 +
 	bclr	#scroll_flag_fg_left,(a2)	; has the level scrolled to the left?
 	beq.s	+			; if not, branch
-	moveq	#-block_height,d4
-	moveq	#-block_width,d5
+	moveq	#-16,d4
+	moveq	#-16,d5
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4
-	moveq	#-block_width,d5
+	moveq	#-16,d4
+	moveq	#-16,d5
 	bsr.w	DrawBlockColumn	; redraw left-most column
 +
 	bclr	#scroll_flag_fg_right,(a2)	; has the level scrolled to the right?
 	beq.s	return_DB5A		; if not, return
-	moveq	#-block_height,d4
-	move.w	#screen_width,d5
+	moveq	#-16,d4
+	move.w	#320,d5
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4
-	move.w	#screen_width,d5
+	moveq	#-16,d4
+	move.w	#320,d5
 	bsr.w	DrawBlockColumn	; redraw right-most column
 
 return_DB5A:
@@ -18641,38 +18610,38 @@ Draw_FG_P2:
 
 	bclr	#scroll_flag_fg_up,(a2)
 	beq.s	+
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer2
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockRow
 +
 	bclr	#scroll_flag_fg_down,(a2)
 	beq.s	+
-	move.w	#screen_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#224,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer2
-	move.w	#screen_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#224,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockRow
 +
 	bclr	#scroll_flag_fg_left,(a2)
 	beq.s	+
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer2
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockColumn
 +
 	bclr	#scroll_flag_fg_right,(a2)
 	beq.s	return_DBC0
-	moveq	#-block_height,d4	; Y offset
-	move.w	#screen_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	move.w	#320,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer2
-	moveq	#-block_height,d4	; Y offset
-	move.w	#screen_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	move.w	#320,d5	; X offset
 	bsr.w	DrawBlockColumn
 
 return_DBC0:
@@ -18689,58 +18658,58 @@ Draw_BG1:
 
 	bclr	#scroll_flag_bg1_up,(a2)
 	beq.s	+
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockRow
 +
 	bclr	#scroll_flag_bg1_down,(a2)
 	beq.s	+
-	move.w	#screen_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#224,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#screen_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#224,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockRow
 +
 	bclr	#scroll_flag_bg1_left,(a2)
 	beq.s	+
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	DrawBlockColumn
 +
 	bclr	#scroll_flag_bg1_right,(a2)
 	beq.s	+
-	moveq	#-block_height,d4	; Y offset
-	move.w	#screen_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	move.w	#320,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4	; Y offset
-	move.w	#screen_width,d5	; X offset
+	moveq	#-16,d4	; Y offset
+	move.w	#320,d5	; X offset
 	bsr.w	DrawBlockColumn
 +
 	bclr	#scroll_flag_bg1_up_whole_row,(a2)
 	beq.s	+
-	moveq	#-block_height,d4		; Y offset
+	moveq	#-16,d4		; Y offset
 	moveq	#0,d5		; X (absolute)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1.AbsoluteX
-	moveq	#-block_height,d4
+	moveq	#-16,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow.AbsoluteXCustomWidth
 +
 	bclr	#scroll_flag_bg1_down_whole_row,(a2)
 	beq.s	+
-	move.w	#screen_height,d4		; Y offset
+	move.w	#224,d4		; Y offset
 	moveq	#0,d5		; X (absolute)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1.AbsoluteX
-	move.w	#screen_height,d4
+	move.w	#224,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow.AbsoluteXCustomWidth
 +
 	; This should be no different than 'scroll_flag_bg1_up_whole_row'.
@@ -18749,12 +18718,12 @@ Draw_BG1:
 	; anyway.
 	bclr	#scroll_flag_bg1_up_whole_row_2,(a2)
 	beq.s	+
-	moveq	#-block_height,d4		; Y offset (relative to camera)
-	moveq	#-block_width,d5		; X offset (relative to camera)
+	moveq	#-16,d4		; Y offset (relative to camera)
+	moveq	#-16,d5		; X offset (relative to camera)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	moveq	#-block_height,d4
-	moveq	#-block_width,d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	moveq	#-16,d4
+	moveq	#-16,d5
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow_CustomWidth
 +
 	; This should be no different than 'scroll_flag_bg1_down_whole_row'.
@@ -18763,12 +18732,12 @@ Draw_BG1:
 	; anyway.
 	bclr	#scroll_flag_bg1_down_whole_row_2,(a2)
 	beq.s	return_DC90
-	move.w	#screen_height,d4		; Y offset (relative to camera)
-	moveq	#-block_width,d5		; X offset (relative to camera)
+	move.w	#224,d4		; Y offset (relative to camera)
+	moveq	#-16,d5		; X offset (relative to camera)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#screen_height,d4
-	moveq	#-block_width,d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	move.w	#224,d4
+	moveq	#-16,d5
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow_CustomWidth
 
 return_DC90:
@@ -18786,21 +18755,21 @@ Draw_BG2:
 	; Leftover from Sonic 1: was used by Green Hill Zone and Spring Yard Zone.
 	bclr	#scroll_flag_bg2_left,(a2)
 	beq.s	+
-	move.w	#block_height*7,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#112,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#block_height*7,d4	; Y offset
-	moveq	#-block_width,d5	; X offset
+	move.w	#112,d4	; Y offset
+	moveq	#-16,d5	; X offset
 	moveq	#3-1,d6	; Only three blocks, which works out to 48 pixels in height.
 	bsr.w	DrawBlockColumn.CustomHeight
 +
 	bclr	#scroll_flag_bg2_right,(a2)
 	beq.s	+
-	move.w	#block_height*7,d4	; Y offset
-	move.w	#screen_width,d5		; X offset
+	move.w	#112,d4	; Y offset
+	move.w	#320,d5		; X offset
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#block_height*7,d4	; Y offset
-	move.w	#screen_width,d5	; X offset
+	move.w	#112,d4	; Y offset
+	move.w	#320,d5	; X offset
 	moveq	#3-1,d6	; Only three blocks, which works out to 48 pixels in height.
 	bsr.w	DrawBlockColumn.CustomHeight
 +
@@ -18875,12 +18844,12 @@ SBZ_CameraSections:
 	; clouds disappear. Using this would have avoided that.
 
 	; Handle loading the rows as the camera moves up and down.
-	moveq	#-block_height,d4	; Y offset (relative to camera)
+	moveq	#-16,d4	; Y offset (relative to camera)
 	bclr	#scroll_flag_advanced_bg_up,(a2)
 	bne.s	.doUpOrDown
 	bclr	#scroll_flag_advanced_bg_down,(a2)
 	beq.s	.checkIfShouldDoLeftOrRight
-	move.w	#screen_height,d4	; Y offset (relative to camera)
+	move.w	#224,d4	; Y offset (relative to camera)
 
 .doUpOrDown:
 	lea_	SBZ_CameraSections+1,a0
@@ -18892,7 +18861,7 @@ SBZ_CameraSections:
 	lea	(BGCameraLookup).l,a3
 	movea.w	(a3,d0.w),a3	; Camera, either BG, BG2 or BG3 depending on Y
 	beq.s	.doWholeRow
-	moveq	#-block_width,d5	; X offset (relative to camera)
+	moveq	#-16,d5	; X offset (relative to camera)
 	movem.l	d4-d5,-(sp)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
 	movem.l	(sp)+,d4-d5
@@ -18905,7 +18874,7 @@ SBZ_CameraSections:
 	movem.l	d4-d5,-(sp)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1.AbsoluteX
 	movem.l	(sp)+,d4-d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow.AbsoluteXCustomWidth
 
 .checkIfShouldDoLeftOrRight:
@@ -18916,17 +18885,17 @@ SBZ_CameraSections:
 ; ===========================================================================
 
 .doLeftOrRight:
-	moveq	#-block_height,d4 ; Y offset
+	moveq	#-16,d4 ; Y offset
 
 	; Load left column.
-	moveq	#-block_width,d5 ; X offset
+	moveq	#-16,d5 ; X offset
 	move.b	(a2),d0
 	andi.b	#(1<<scroll_flag_advanced_bg1_right)|(1<<scroll_flag_advanced_bg2_right)|(1<<scroll_flag_advanced_bg3_right),d0
 	beq.s	+
 	lsr.b	#1,d0	; Make the left and right flags share the same bits, to simplify a calculation later.
 	move.b	d0,(a2)
 	; Load right column.
-	move.w	#screen_width,d5 ; X offset
+	move.w	#320,d5 ; X offset
 +
 	; Select the correct starting background section, and then begin
 	; drawing the column.
@@ -18955,21 +18924,21 @@ Draw_BG3:
 	; Leftover from Sonic 1: was used by Green Hill Zone.
 	bclr	#scroll_flag_bg3_left,(a2)
 	beq.s	+
-	move.w	#block_height*4,d4	; Y offset (relative to camera)
-	moveq	#-block_width,d5	; X offset (relative to camera)
+	move.w	#64,d4	; Y offset (relative to camera)
+	moveq	#-16,d5	; X offset (relative to camera)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#block_height*4,d4	; Y offset (relative to camera)
-	moveq	#-block_width,d5	; X offset (relative to camera)
+	move.w	#64,d4	; Y offset (relative to camera)
+	moveq	#-16,d5	; X offset (relative to camera)
 	moveq	#3-1,d6
 	bsr.w	DrawBlockColumn.CustomHeight
 +
 	bclr	#scroll_flag_bg3_right,(a2)
 	beq.s	+
-	move.w	#block_height*4,d4	; Y offset (relative to camera)
-	move.w	#screen_width,d5	; X offset (relative to camera)
+	move.w	#64,d4	; Y offset (relative to camera)
+	move.w	#320,d5	; X offset (relative to camera)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
-	move.w	#block_height*4,d4	; Y offset (relative to camera)
-	move.w	#screen_width,d5	; X offset (relative to camera)
+	move.w	#64,d4	; Y offset (relative to camera)
+	move.w	#320,d5	; X offset (relative to camera)
 	moveq	#3-1,d6
 	bsr.w	DrawBlockColumn.CustomHeight
 +
@@ -19075,12 +19044,12 @@ Draw_BG3_CPZ:
 	; row when it uses "camera 0".
 
 	; Handle loading the rows as the camera moves up and down.
-	moveq	#-block_height,d4	; Y offset
+	moveq	#-16,d4	; Y offset
 	bclr	#scroll_flag_advanced_bg_up,(a2)
 	bne.s	.doUpOrDown
 	bclr	#scroll_flag_advanced_bg_down,(a2)
 	beq.s	.checkIfShouldDoLeftOrRight
-	move.w	#screen_height,d4	; Y offset
+	move.w	#224,d4	; Y offset
 
 .doUpOrDown:
 	; Select the correct camera, so that the X value of the loaded row is
@@ -19092,7 +19061,7 @@ Draw_BG3_CPZ:
 	lsr.w	#4,d0
 	move.b	(a0,d0.w),d0
 	movea.w	BGCameraLookup(pc,d0.w),a3	; Camera, either BG, BG2 or BG3 depending on Y
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d5	; X offset
 	movem.l	d4-d5,-(sp)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
 	movem.l	(sp)+,d4-d5
@@ -19106,17 +19075,17 @@ Draw_BG3_CPZ:
 ; ===========================================================================
 
 .doLeftOrRight:
-	moveq	#-block_height,d4 ; Y offset
+	moveq	#-16,d4 ; Y offset
 
 	; Load left column.
-	moveq	#-block_width,d5 ; X offset
+	moveq	#-16,d5 ; X offset
 	move.b	(a2),d0
 	andi.b	#(1<<scroll_flag_advanced_bg1_right)|(1<<scroll_flag_advanced_bg2_right)|(1<<scroll_flag_advanced_bg3_right),d0
 	beq.s	+
 	lsr.b	#1,d0	; Make the left and right flags share the same bits, to simplify a calculation later.
 	move.b	d0,(a2)
 	; Load right column.
-	move.w	#screen_width,d5 ; X offset
+	move.w	#320,d5 ; X offset
 +
 	; Select the correct starting background section, and then begin
 	; drawing the column.
@@ -19147,8 +19116,8 @@ DrawBlockColumn_Advanced:
 	tst.w	(Two_player_mode).w
 	bne.s	.doubleResolution
 
-	moveq	#(1+screen_height/block_height+1)-1,d6	; Enough blocks to cover the screen, plus one more on the top and bottom.
-	move.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d7	; store VDP command for line increment
+	moveq	#(1+224/16+1)-1,d6	; Enough blocks to cover the screen, plus one more on the top and bottom.
+	move.l	#vdpCommDelta($0080),d7
 
 -
 	; If the block is not part of the row that needs updating, then skip
@@ -19169,7 +19138,7 @@ DrawBlockColumn_Advanced:
 	movem.l	(sp)+,d4-d5/a0
 +
 	; Move onto the next block down.
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	; Clear the scroll flags now that we're done here.
@@ -19179,8 +19148,8 @@ DrawBlockColumn_Advanced:
 ; ===========================================================================
 
 .doubleResolution:
-	moveq	#(1+screen_height/block_height+1)-1,d6	; Enough blocks to cover the screen, plus one more on the top and bottom.
-	move.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d7	; store VDP command for line increment
+	moveq	#(1+224/16+1)-1,d6	; Enough blocks to cover the screen, plus one more on the top and bottom.
+	move.l	#vdpCommDelta($0080),d7
 
 -
 	; If the block is not part of the row that needs updating, then skip
@@ -19201,7 +19170,7 @@ DrawBlockColumn_Advanced:
 	movem.l	(sp)+,d4-d5/a0
 +
 	; Move onto the next block down.
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	; Clear the scroll flags now that we're done here.
@@ -19277,12 +19246,12 @@ Draw_BG3_OOZ:
 	; it aligns with.
 
 	; Handle loading the rows as the camera moves up and down.
-	moveq	#-block_height,d4	; Y offset
+	moveq	#-16,d4	; Y offset
 	bclr	#scroll_flag_advanced_bg_up,(a2)
 	bne.s	.doUpOrDown
 	bclr	#scroll_flag_advanced_bg_down,(a2)
 	beq.s	.checkIfShouldDoLeftOrRight
-	move.w	#screen_height,d4	; Y offset
+	move.w	#224,d4	; Y offset
 
 .doUpOrDown:
 	; Select the correct camera, so that the X value of the loaded row is
@@ -19296,7 +19265,7 @@ Draw_BG3_OOZ:
 	lea	BGCameraLookup(pc),a3
 	movea.w	(a3,d0.w),a3	; Camera, either BG, BG2 or BG3 depending on Y
 	beq.s	.doWholeRow
-	moveq	#-block_width,d5	; X offset
+	moveq	#-16,d5	; X offset
 	movem.l	d4-d5,-(sp)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
 	movem.l	(sp)+,d4-d5
@@ -19309,7 +19278,7 @@ Draw_BG3_OOZ:
 	movem.l	d4-d5,-(sp)
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1.AbsoluteX
 	movem.l	(sp)+,d4-d5
-	moveq	#gameplay_plane_width/block_width-1,d6	; The entire width of the plane in blocks minus 1.
+	moveq	#512/16-1,d6	; The entire width of the plane in blocks minus 1.
 	bsr.w	DrawBlockRow.AbsoluteXCustomWidth
 
 .checkIfShouldDoLeftOrRight:
@@ -19320,17 +19289,17 @@ Draw_BG3_OOZ:
 ; ===========================================================================
 
 .doLeftOrRight:
-	moveq	#-block_height,d4 ; Y offset
+	moveq	#-16,d4 ; Y offset
 
 	; Load left column.
-	moveq	#-block_width,d5 ; X offset
+	moveq	#-16,d5 ; X offset
 	move.b	(a2),d0
 	andi.b	#(1<<scroll_flag_advanced_bg1_right)|(1<<scroll_flag_advanced_bg2_right)|(1<<scroll_flag_advanced_bg3_right),d0
 	beq.s	+
 	lsr.b	#1,d0	; Make the left and right flags share the same bits, to simplify a calculation later.
 	move.b	d0,(a2)
 	; Load right column.
-	move.w	#screen_width,d5 ; X offset
+	move.w	#320,d5 ; X offset
 +
 	; Select the correct starting background section, and then begin
 	; drawing the column.
@@ -19346,12 +19315,12 @@ Draw_BG3_OOZ:
 
 ; sub_DF04: DrawBlockCol1:
 DrawBlockColumn:
-	moveq	#(1+screen_height/block_height+1)-1,d6 ; Enough blocks to cover the screen, plus one more on the top and bottom.
+	moveq	#(1+224/16+1)-1,d6 ; Enough blocks to cover the screen, plus one more on the top and bottom.
 ; DrawBlockCol2:
 .CustomHeight:
 	add.w	(a3),d5		; add camera X pos
 	add.w	4(a3),d4	; add camera Y pos
-	move.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d7	; store VDP command for line increment
+	move.l	#vdpCommDelta(64*2),d7	; store VDP command for line increment
 	move.l	d0,d1		; copy byte-swapped VDP command for later access
 	bsr.w	GetAddressOfBlockInChunk
 
@@ -19365,10 +19334,10 @@ DrawBlockColumn:
 	adda.w	d3,a1		; a1 = address of the current 16x16 in the block table
 	move.l	d1,d0
 	bsr.w	ProcessAndWriteBlock_Vertical
-	adda.w	#chunk_width/block_width*2,a0	; move onto the 16x16 vertically below this one
-	addi.w	#gameplay_plane_width/tile_width*2*2,d1	; draw on alternate 8x8 lines
-	andi.w	#((gameplay_plane_width/tile_width)*(gameplay_plane_height/tile_height)*2)-1,d1	; wrap around plane (assumed to be in 64x32 mode)
-	addi.w	#block_height,d4		; add 16 to Y offset
+	adda.w	#128/16*2,a0	; move onto the 16x16 vertically below this one
+	addi.w	#64*2*2,d1	; draw on alternate 8x8 lines
+	andi.w	#(64*32*2)-1,d1	; wrap around plane (assumed to be in 64x32 mode)
+	addi.w	#16,d4		; add 16 to Y offset
 	move.w	d4,d0
 	andi.w	#$70,d0		; have we reached a new 128x128?
 	bne.s	+		; if not, branch
@@ -19386,10 +19355,10 @@ DrawBlockColumn:
 	adda.w	d3,a1
 	move.l	d1,d0
 	bsr.w	ProcessAndWriteBlock_DoubleResolution_Vertical
-	adda.w	#chunk_width/block_width*2,a0
-	addi.w	#gameplay_plane_width/tile_width*2,d1
-	andi.w	#((gameplay_plane_width/tile_width)*(gameplay_plane_height/tile_height)*2)-1,d1
-	addi.w	#block_height,d4
+	adda.w	#128/16*2,a0
+	addi.w	#$80,d1
+	andi.w	#(64*32*2)-1,d1
+	addi.w	#16,d4
 	move.w	d4,d0
 	andi.w	#$70,d0
 	bne.s	+
@@ -19414,7 +19383,7 @@ DrawBlockRow_CustomWidth:
 
 ; sub_DF92: DrawTiles_Vertical1: DrawBlockRow1:
 DrawBlockRow:
-	moveq	#(1+screen_width/block_width+1)-1,d6 ; Just enough blocks to cover the screen.
+	moveq	#(1+320/16+1)-1,d6 ; Just enough blocks to cover the screen.
 	add.w	(a3),d5		; add X pos
 ; loc_DF96: DrawTiles_Vertical2: DrawBlockRow2:
 .AbsoluteXCustomWidth:
@@ -19449,7 +19418,7 @@ DrawBlockRow:
 	move.l	d1,(a5)		; set up a VRAM write at a new address
 	swap	d1
 +
-	addi.w	#block_width,d5		; add 16 to X offset
+	addi.w	#16,d5		; add 16 to X offset
 	move.w	d5,d0
 	andi.w	#$70,d0		; have we reached a new 128x128?
 	bne.s	+		; if not, branch
@@ -19458,7 +19427,7 @@ DrawBlockRow:
 	dbf	d6,-		; repeat 22 times
 
 	move.l	(sp)+,d1
-	addi.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d1	; move onto next line
+	addi.l	#vdpCommDelta(64*2),d1	; move onto next line
 	lea	(Block_cache).w,a2
 	move.l	d1,(a5)		; write to this VRAM address
 	swap	d1
@@ -19503,7 +19472,7 @@ DrawBlockRow:
 	move.l	d1,(a5)
 	swap	d1
 +
-	addi.w	#block_width,d5
+	addi.w	#16,d5
 	move.w	d5,d0
 	andi.w	#$70,d0
 	bne.s	+
@@ -19529,7 +19498,7 @@ DrawBlockRow:
 	move.l	d1,(a5)
 	swap	d1
 +
-	addi.w	#block_width,d5
+	addi.w	#16,d5
 	move.w	d5,d0
 	andi.w	#$70,d0
 	bne.s	+
@@ -19939,42 +19908,42 @@ DrawInitialBG:
 	cmpi.b	#mystic_cave_zone,(Current_Zone).w
 	beq.w	DrawInitialBG_LoadWholeBackground_512x512
 +
-	moveq	#-block_height,d4
+	moveq	#-16,d4
 +
-	moveq	#gameplay_plane_height/block_height-1,d6 ; Height of plane in blocks minus 1.
+	moveq	#256/16-1,d6 ; Height of plane in blocks minus 1.
 -	movem.l	d4-d6,-(sp)
 	moveq	#0,d5
 	move.w	d4,d1
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1
 	move.w	d1,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6 ; Width of plane in blocks minus 1.
+	moveq	#512/16-1,d6 ; Width of plane in blocks minus 1.
 	move	#$2700,sr
 	bsr.w	DrawBlockRow_CustomWidth
 	move	#$2300,sr
 	movem.l	(sp)+,d4-d6
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	rts
 ; ===========================================================================
 	; Dead code for initialising the second player's portion of Plane B.
 	; This was used in earlier builds before title cards were implemented.
-	moveq	#-block_height,d4
+	moveq	#-16,d4
 
-	moveq	#gameplay_plane_height/block_height-1,d6 ; Height of plane in blocks minus 1.
+	moveq	#256/16-1,d6 ; Height of plane in blocks minus 1.
 -	movem.l	d4-d6,-(sp)
 	moveq	#0,d5
 	move.w	d4,d1
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer2
 	move.w	d1,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6 ; Width of plane in blocks minus 1.
+	moveq	#512/16-1,d6 ; Width of plane in blocks minus 1.
 	move	#$2700,sr
 	bsr.w	DrawBlockRow_CustomWidth
 	move	#$2300,sr
 	movem.l	(sp)+,d4-d6
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	rts
@@ -19986,19 +19955,19 @@ DrawInitialBG_LoadWholeBackground_512x512:
 	; mode (512x512 instead of 512x256).
 	moveq	#0,d4	; Absolute plane Y coordinate.
 
-	moveq	#gameplay_plane_height_2p/block_height-1,d6 ; Height of plane in blocks minus 1.
+	moveq	#512/16-1,d6 ; Height of plane in blocks minus 1.
 -	movem.l	d4-d6,-(sp)
 	moveq	#0,d5
 	move.w	d4,d1
 	bsr.w	CalculateVRAMAddressOfBlockForPlayer1.AbsoluteXAbsoluteY_DoubleResolution
 	move.w	d1,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6 ; Width of plane in blocks minus 1.
+	moveq	#512/16-1,d6 ; Width of plane in blocks minus 1.
 	move	#$2700,sr
 	bsr.w	DrawBlockRow.AbsoluteXAbsoluteYCustomWidth
 	move	#$2300,sr
 	movem.l	(sp)+,d4-d6
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	rts
@@ -20007,7 +19976,7 @@ DrawInitialBG_LoadWholeBackground_512x512:
 DrawInitialBG_LoadWholeBackground_512x256:
 	moveq	#0,d4	; Absolute plane Y coordinate.
 
-	moveq	#gameplay_plane_height/block_height-1,d6 ; Height of plane in blocks minus 1.
+	moveq	#256/16-1,d6 ; Height of plane in blocks minus 1.
 -	movem.l	d4-d6,-(sp)
 	moveq	#0,d5
 	move.w	d4,d1
@@ -20019,12 +19988,12 @@ DrawInitialBG_LoadWholeBackground_512x256:
 +
 	move.w	d1,d4
 	moveq	#0,d5
-	moveq	#gameplay_plane_width/block_width-1,d6 ; Width of plane in blocks minus 1.
+	moveq	#512/16-1,d6 ; Width of plane in blocks minus 1.
 	move	#$2700,sr
 	bsr.w	DrawBlockRow.AbsoluteXAbsoluteYCustomWidth
 	move	#$2300,sr
 	movem.l	(sp)+,d4-d6
-	addi.w	#block_height,d4
+	addi.w	#16,d4
 	dbf	d6,-
 
 	rts
@@ -25082,7 +25051,7 @@ loc_121B8:
 	tst.b	(Ring_spill_anim_counter).w
 	beq.s	Obj37_Delete
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	blo.s	Obj37_Delete
 	bra.w	DisplaySprite
@@ -26091,611 +26060,7 @@ Obj26_MapUnc_12D36:	include "mappings/sprite/obj26.asm"
 
 
 
-; ----------------------------------------------------------------------------
-; Object 0E - Title screen intro animation
-; ----------------------------------------------------------------------------
-obj0e_counter		= objoff_2A
-obj0e_array_index	= objoff_2C
-obj0e_intro_complete	= objoff_2F
-obj0e_music_playing	= objoff_30
-obj0e_current_frame	= objoff_34
 
-obj0e_make_sprite_position macro x,y
-	dc.w	spriteScreenPositionXCentered(x),spriteScreenPositionYCentered(y)
-    endm
-
-; Sprite_12E18:
-Obj0E:
-	moveq	#0,d0
-	move.b	routine(a0),d0
-	move.w	Obj0E_Index(pc,d0.w),d1
-	jmp	Obj0E_Index(pc,d1.w)
-; ===========================================================================
-; off_12E26: Obj0E_States:
-Obj0E_Index: offsetTable
-	offsetTableEntry.w Obj0E_Init		;   0
-	offsetTableEntry.w Obj0E_Sonic		;   2
-	offsetTableEntry.w Obj0E_Tails		;   4
-	offsetTableEntry.w Obj0E_LogoTop	;   6
-	offsetTableEntry.w Obj0E_FlashingStar	;   8
-	offsetTableEntry.w Obj0E_SonicHand	;  $A
-	offsetTableEntry.w Obj0E_FallingStar	;  $C
-	offsetTableEntry.w Obj0E_MaskingSprite	;  $E
-	offsetTableEntry.w Obj0E_TailsHand	; $10
-; ===========================================================================
-; loc_12E38:
-Obj0E_Init:
-	addq.b	#2,routine(a0)	; useless, because it's overwritten with the subtype below
-	move.l	#Obj0E_MapUnc_136A8,mappings(a0)
-	move.w	#make_art_tile(ArtTile_ArtNem_TitleSprites,0,0),art_tile(a0)
-	move.b	#4,priority(a0)
-	move.b	subtype(a0),routine(a0)
-	bra.s	Obj0E
-; ===========================================================================
-
-Obj0E_Sonic:
-	addq.w	#1,obj0e_current_frame(a0)
-	cmpi.w	#288,obj0e_current_frame(a0)
-	bhs.s	+
-	bsr.w	TitleScreen_SetFinalState
-+
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_Sonic_Index(pc,d0.w),d1
-	jmp	Obj0E_Sonic_Index(pc,d1.w)
-; ===========================================================================
-; off_12E76:
-Obj0E_Sonic_Index: offsetTable
-	offsetTableEntry.w Obj0E_Sonic_Init			;   0
-	offsetTableEntry.w Obj0E_Sonic_FadeInAndPlayMusic	;   2
-	offsetTableEntry.w Obj0E_Sonic_LoadPalette		;   4
-	offsetTableEntry.w Obj0E_Sonic_Move			;   6
-	offsetTableEntry.w Obj0E_Animate			;   8
-	offsetTableEntry.w Obj0E_Sonic_AnimationFinished	;  $A
-	offsetTableEntry.w Obj0E_Sonic_SpawnTails		;  $C
-	offsetTableEntry.w Obj0E_Sonic_FlashBackground		;  $E
-	offsetTableEntry.w Obj0E_Sonic_SpawnFallingStar		; $10
-	offsetTableEntry.w Obj0E_Sonic_MakeStarSparkle		; $12
-; ===========================================================================
-; spawn more stars
-Obj0E_Sonic_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_FadeInAndPlayMusic
-	move.b	#5,mapping_frame(a0)
-
-	move.w	#spriteScreenPositionXCentered(-16),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-16),y_pixel(a0)
-
-	; Load flashing star object.
-	lea	(IntroFlashingStar).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#8,subtype(a1)
-
-	; Load emblem top object.
-	lea	(IntroEmblemTop).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#6,subtype(a1)
-
-	; Play twinkling sound.
-	moveq	#signextendB(SndID_Sparkle),d0
-	jmpto	JmpTo4_PlaySound
-; ===========================================================================
-; loc_12EC2:
-Obj0E_Sonic_FadeInAndPlayMusic:
-	; Wait.
-	cmpi.w	#56,obj0e_current_frame(a0)
-	bhs.s	+
-	rts
-; ===========================================================================
-+
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_LoadPalette
-
-	; Load palette-changer object.
-	lea	(TitleScreenPaletteChanger3).w,a1
-	move.b	#ObjID_TtlScrPalChanger,id(a1)
-	move.b	#0,subtype(a1)
-
-	; Play title screen music.
-	st.b	obj0e_music_playing(a0)
-	moveq	#signextendB(MusID_Title),d0
-	jmpto	JmpTo4_PlayMusic
-; ===========================================================================
-; loc_12EE8:
-Obj0E_Sonic_LoadPalette:
-	; Wait.
-	cmpi.w	#128,obj0e_current_frame(a0)
-	bhs.s	+
-	rts
-; ===========================================================================
-+
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_Move
-
-	; Load Sonic's palette to palette line 1.
-	lea	(Pal_133EC).l,a1
-	lea	(Normal_palette).w,a2
-	moveq	#bytesToWcnt(palette_line_size),d6
--	move.w	(a1)+,(a2)+
-	dbf	d6,-
-; sub_12F08: Obj0E_Sonic_LoadSky:
-Obj0E_LoadMaskingSprite:
-	; Load sprite mask object.
-	lea	(IntroMaskingSprite).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$E,subtype(a1)
-	rts
-; End of function Obj0E_Sonic_LoadPalette
-
-; ===========================================================================
-; loc_12F18:
-Obj0E_Sonic_Move:
-	; 'd2' is used to detect when the end of the position array has been
-	; reached.
-	moveq	#Obj0E_Sonic_Positions_End-Obj0E_Sonic_Positions+4,d2
-	lea	(Obj0E_Sonic_Positions).l,a1
-; loc_12F20:
-Obj0E_Move:
-	; Change position every 4 frames.
-	move.w	obj0e_counter(a0),d0
-	addq.w	#1,d0
-	move.w	d0,obj0e_counter(a0)
-	andi.w	#3,d0
-	bne.s	+
-
-	; Advance index, while checking if we've reached the end of the
-	; position array.
-	move.w	obj0e_array_index(a0),d1
-	addq.w	#4,d1
-	cmp.w	d2,d1
-	bhs.w	Obj0E_NextRoutineSecondary
-	move.w	d1,obj0e_array_index(a0)
-
-	; Obtain position from the array and apply it to the object.
-	move.l	-4(a1,d1.w),d0
-	move.w	d0,y_pixel(a0)
-	swap	d0
-	move.w	d0,x_pixel(a0)
-+
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_12F52:
-Obj0E_Animate:
-	lea	(Ani_obj0E).l,a1
-	bsr.w	AnimateSprite
-	bra.w	DisplaySprite
-; ===========================================================================
-; Obj0E_Sonic_LastFrame:
-Obj0E_Sonic_AnimationFinished:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_SpawnTails
-	move.b	#$12,mapping_frame(a0)
-
-	; Load Sonic's hand object.
-	lea	(IntroSonicHand).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$A,subtype(a1)
-
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_12F7C:
-Obj0E_Sonic_SpawnTails:
-	cmpi.w	#192,obj0e_current_frame(a0)
-	blo.s	+
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_FlashBackground
-
-	; Load Tails object.
-	lea	(IntroTails).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#4,subtype(a1)
-+
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_12F9A:
-Obj0E_Sonic_FlashBackground:
-	cmpi.w	#288,obj0e_current_frame(a0)
-	blo.s	+
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_SpawnFallingStar
-	clr.w	obj0e_array_index(a0)
-	st.b	obj0e_intro_complete(a0)
-
-	; Fill palette line 3 with white.
-	lea	(Normal_palette_line3).w,a1
-	move.w	#$EEE,d0
-	moveq	#bytesToWcnt(palette_line_size),d6
--	move.w	d0,(a1)+
-	dbf	d6,-
-
-	; Load palette-changer object.
-	lea	(TitleScreenPaletteChanger2).w,a1
-	move.b	#ObjID_TtlScrPalChanger,id(a1)
-	move.b	#2,subtype(a1)
-
-	; Load title screen menu object.
-	move.b	#ObjID_TitleMenu,(TitleScreenMenu+id).w
-+
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_12FD6:
-Obj0E_Sonic_SpawnFallingStar:
-	; Wait a different amount of time on PAL consoles so that it's timed
-	; right with the music.
-	btst	#6,(Graphics_Flags).w
-	beq.s	+
-	cmpi.w	#400,obj0e_current_frame(a0)
-	beq.s	++
-	bra.w	DisplaySprite
-; ===========================================================================
-+
-	cmpi.w	#464,obj0e_current_frame(a0)
-	beq.s	+
-	bra.w	DisplaySprite
-; ===========================================================================
-+
-	; Create falling star object.
-	lea	(IntroFallingStar).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$C,subtype(a1)
-
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Sonic_MakeStarSparkle
-
-	; Delete sprite mask object.
-	lea	(IntroMaskingSprite).w,a1
-	bsr.w	DeleteObject2
-
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_13014:
-Obj0E_Sonic_MakeStarSparkle:
-	; Animate the falling star every 8 frames.
-	move.b	(Vint_runcount+3).w,d0
-	andi.b	#7,d0
-	bne.s	++
-
-	; Advance index, while checking if we've reached the end of the
-	; colour array.
-	move.w	obj0e_array_index(a0),d0
-	addq.w	#2,d0
-	cmpi.w	#CyclingPal_TitleStar_End-CyclingPal_TitleStar,d0
-	blo.s	+
-	moveq	#0,d0
-+
-	move.w	d0,obj0e_array_index(a0)
-
-	; Obtain colour from the array and apply it to the palette line.
-	move.w	CyclingPal_TitleStar(pc,d0.w),(Normal_palette_line3+5*2).w
-+
-	bra.w	DisplaySprite
-; ===========================================================================
-; word_1303A:
-CyclingPal_TitleStar:
-	binclude "art/palettes/Title Star Cycle.bin"
-CyclingPal_TitleStar_End
-
-;word_13046:
-Obj0E_Sonic_Positions:
-	;                             X,   Y
-	obj0e_make_sprite_position  -24, -32
-	obj0e_make_sprite_position  -32, -48
-	obj0e_make_sprite_position  -40, -64
-	obj0e_make_sprite_position  -42, -74
-	obj0e_make_sprite_position  -38, -82
-	obj0e_make_sprite_position  -32, -86
-	obj0e_make_sprite_position  -28, -87
-	obj0e_make_sprite_position  -24, -88
-Obj0E_Sonic_Positions_End
-; ===========================================================================
-
-Obj0E_Tails:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_Tails_Index(pc,d0.w),d1
-	jmp	Obj0E_Tails_Index(pc,d1.w)
-; ===========================================================================
-; off_13074:
-Obj0E_Tails_Index: offsetTable
-	offsetTableEntry.w Obj0E_Tails_Init			; 0
-	offsetTableEntry.w Obj0E_Tails_Move			; 2
-	offsetTableEntry.w Obj0E_Animate			; 4
-	offsetTableEntry.w Obj0E_Tails_AnimationFinished	; 6
-	offsetTableEntry.w BranchTo10_DisplaySprite		; 8
-; ===========================================================================
-
-Obj0E_Tails_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Tails_Move
-    if fixBugs
-	; Tails' priority is never set, even though it is set in
-	; 'TitleScreen_SetFinalState', suggesting that it was meant to be.
-	; This causes Tails to be layered behind Sonic instead of in front of
-	; him.
-	move.b	#3,priority(a0)
-    endif
-	move.w	#spriteScreenPositionXCentered(-72),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-24),y_pixel(a0)
-	move.b	#1,anim(a0)
-	rts
-; ===========================================================================
-; loc_13096:
-Obj0E_Tails_Move:
-	moveq	#Obj0E_Tails_Positions_End-Obj0E_Tails_Positions+4,d2
-	lea	(Obj0E_Tails_Positions).l,a1
-	bra.w	Obj0E_Move
-; ===========================================================================
-; loc_130A2:
-Obj0E_Tails_AnimationFinished:
-	addq.b	#2,routine_secondary(a0)	; BranchTo10_DisplaySprite
-
-	; Load Tails' hand object.
-	lea	(IntroTailsHand).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$10,subtype(a1)
-
-BranchTo10_DisplaySprite ; BranchTo
-	bra.w	DisplaySprite
-; ===========================================================================
-; word_130B8:
-Obj0E_Tails_Positions:
-	;                             X,   Y
-	obj0e_make_sprite_position  -73, -40
-	obj0e_make_sprite_position  -77, -56
-	obj0e_make_sprite_position  -82, -68
-	obj0e_make_sprite_position  -84, -74
-	obj0e_make_sprite_position  -86, -78
-	obj0e_make_sprite_position  -87, -79
-	obj0e_make_sprite_position  -88, -80
-Obj0E_Tails_Positions_End
-; ===========================================================================
-
-Obj0E_LogoTop:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_LogoTop_Index(pc,d0.w),d1
-	jmp	Obj0E_LogoTop_Index(pc,d1.w)
-; ===========================================================================
-; off_130E2:
-Obj0E_LogoTop_Index: offsetTable
-	offsetTableEntry.w Obj0E_LogoTop_Init		; 0
-	offsetTableEntry.w BranchTo11_DisplaySprite	; 2
-; ===========================================================================
-
-Obj0E_LogoTop_Init:
-	; Don't show the trademark symbol on Japanese consoles.
-	move.b	#$B,mapping_frame(a0)
-	tst.b	(Graphics_Flags).w
-	bmi.s	+
-	move.b	#$A,mapping_frame(a0)
-+
-	move.b	#2,priority(a0)
-	move.w	#spriteScreenPositionXCentered(0),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-8),y_pixel(a0)
-; loc_1310A:
-Obj0E_NextRoutineSecondary:
-	addq.b	#2,routine_secondary(a0)	; BranchTo11_DisplaySprite
-
-BranchTo11_DisplaySprite ; BranchTo
-	bra.w	DisplaySprite
-; ===========================================================================
-; Obj0E_SkyPiece:
-Obj0E_MaskingSprite:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_MaskingSprite_Index(pc,d0.w),d1
-	jmp	Obj0E_MaskingSprite_Index(pc,d1.w)
-; ===========================================================================
-; off_13120:
-Obj0E_MaskingSprite_Index: offsetTable
-	offsetTableEntry.w Obj0E_MaskingSprite_Init	; 0
-	offsetTableEntry.w BranchTo12_DisplaySprite	; 2
-; ===========================================================================
-
-Obj0E_MaskingSprite_Init:
-	addq.b	#2,routine_secondary(a0)	; BranchTo12_DisplaySprite
-	move.w	#make_art_tile(ArtTile_ArtNem_Title,0,0),art_tile(a0)
-	move.b	#$11,mapping_frame(a0)
-	move.b	#2,priority(a0)
-	; Masking sprites normally must have an X coordinate of 0. I don't
-	; know why it isn't set to that here, but it is corrected to 0 in
-	; 'TitleScreen_Loop'.
-	move.w	#spriteScreenPositionXCentered(-32),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(0),y_pixel(a0)
-
-BranchTo12_DisplaySprite ; BranchTo
-	bra.w	DisplaySprite
-; ===========================================================================
-; Obj0E_LargeStar:
-Obj0E_FlashingStar:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_FlashingStar_Index(pc,d0.w),d1
-	jmp	Obj0E_FlashingStar_Index(pc,d1.w)
-; ===========================================================================
-; off_13158:
-Obj0E_FlashingStar_Index: offsetTable
-	offsetTableEntry.w Obj0E_FlashingStar_Init	; 0
-	offsetTableEntry.w Obj0E_Animate		; 2
-	offsetTableEntry.w Obj0E_FlashingStar_Wait	; 4
-	offsetTableEntry.w Obj0E_FlashingStar_Move	; 6
-; ===========================================================================
-
-Obj0E_FlashingStar_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_Animate
-	move.b	#$C,mapping_frame(a0)
-	ori.w	#high_priority,art_tile(a0)
-	move.b	#2,anim(a0)
-	move.b	#1,priority(a0)
-	move.w	#spriteScreenPositionXCentered(-32),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-72),y_pixel(a0)
-	move.w	#4,obj0e_counter(a0)
-	rts
-; ===========================================================================
-; loc_13190:
-Obj0E_FlashingStar_Wait:
-	subq.w	#1,obj0e_counter(a0)
-	bmi.s	+
-	rts
-; ===========================================================================
-+
-	addq.b	#2,routine_secondary(a0)	; Obj0E_FlashingStar_Move
-	rts
-; ===========================================================================
-; loc_1319E:
-Obj0E_FlashingStar_Move:
-	move.b	#2,routine_secondary(a0)	; Obj0E_Animate
-	move.b	#0,anim_frame(a0)
-	move.b	#0,anim_frame_duration(a0)
-	move.w	#6,obj0e_counter(a0)
-
-	; Advance index, while checking if we've reached the end of the
-	; position array.
-	move.w	obj0e_array_index(a0),d0
-	addq.w	#4,d0
-	cmpi.w	#Obj0E_FlashingStar_Positions_End-Obj0E_FlashingStar_Positions+4,d0
-	bhs.w	DeleteObject
-	move.w	d0,obj0e_array_index(a0)
-
-	; Obtain position from the array and apply it to the object.
-	move.l	Obj0E_FlashingStar_Positions-4(pc,d0.w),d0
-	move.w	d0,y_pixel(a0)
-	swap	d0
-	move.w	d0,x_pixel(a0)
-
-	; Play twinkling sound.
-	moveq	#signextendB(SndID_Sparkle),d0
-	jmpto	JmpTo4_PlaySound
-; ===========================================================================
-; word_131DC:
-Obj0E_FlashingStar_Positions:
-	;                             X,   Y
-	obj0e_make_sprite_position  -70,   2
-	obj0e_make_sprite_position   80,   8
-	obj0e_make_sprite_position   18,  65
-	obj0e_make_sprite_position  126, -78
-	obj0e_make_sprite_position  -96, -13
-	obj0e_make_sprite_position   96, -16
-	obj0e_make_sprite_position  -19,  75
-	obj0e_make_sprite_position  -96, -69
-	obj0e_make_sprite_position   69,  23
-Obj0E_FlashingStar_Positions_End
-; ===========================================================================
-
-Obj0E_SonicHand:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_SonicHand_Index(pc,d0.w),d1
-	jmp	Obj0E_SonicHand_Index(pc,d1.w)
-; ===========================================================================
-; off_1320E:
-Obj0E_SonicHand_Index: offsetTable
-	offsetTableEntry.w Obj0E_SonicHand_Init		; 0
-	offsetTableEntry.w Obj0E_SonicHand_Move		; 2
-	offsetTableEntry.w BranchTo13_DisplaySprite	; 4
-; ===========================================================================
-
-Obj0E_SonicHand_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_SonicHand_Move
-	move.b	#9,mapping_frame(a0)
-    if fixBugs
-	; This matches 'TitleScreen_SetFinalState'.
-	move.b	#2,priority(a0)
-    else
-	; This is inconsistent with 'TitleScreen_SetFinalState'.
-	move.b	#3,priority(a0)
-    endif
-	move.w	#spriteScreenPositionXCentered(37),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-49),y_pixel(a0)
-
-BranchTo13_DisplaySprite ; BranchTo
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_13234:
-Obj0E_SonicHand_Move:
-	moveq	#Obj0E_SonicHand_Positions_End-Obj0E_SonicHand_Positions+4,d2
-	lea	(Obj0E_SonicHand_Positions).l,a1
-	bra.w	Obj0E_Move
-; ===========================================================================
-; word_13240:
-Obj0E_SonicHand_Positions:
-	;                            X,   Y
-	obj0e_make_sprite_position  35, -47
-	obj0e_make_sprite_position  32, -46
-	obj0e_make_sprite_position  33, -47
-Obj0E_SonicHand_Positions_End
-; ===========================================================================
-
-Obj0E_TailsHand:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_TailsHand_Index(pc,d0.w),d1
-	jmp	Obj0E_TailsHand_Index(pc,d1.w)
-; ===========================================================================
-; off_1325A:
-Obj0E_TailsHand_Index: offsetTable
-	offsetTableEntry.w Obj0E_TailsHand_Init		; 0
-	offsetTableEntry.w Obj0E_TailsHand_Move		; 2
-	offsetTableEntry.w BranchTo14_DisplaySprite	; 4
-; ===========================================================================
-
-Obj0E_TailsHand_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_TailsHand_Move
-	move.b	#$13,mapping_frame(a0)
-    if fixBugs
-	; This matches 'TitleScreen_SetFinalState'.
-	move.b	#2,priority(a0)
-    else
-	; This is inconsistent with 'TitleScreen_SetFinalState', and causes
-	; the hand to be layered behind Tails if his priority is fixed.
-	move.b	#3,priority(a0)
-    endif
-	move.w	#spriteScreenPositionXCentered(-17),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-27),y_pixel(a0)
-
-BranchTo14_DisplaySprite ; BranchTo
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_13280:
-Obj0E_TailsHand_Move:
-	moveq	#Obj0E_TailsHand_Positions_End-Obj0E_TailsHand_Positions+4,d2
-	lea	(Obj0E_TailsHand_Positions).l,a1
-	bra.w	Obj0E_Move
-; ===========================================================================
-; word_1328C:
-Obj0E_TailsHand_Positions:
-	;                             X,   Y
-	obj0e_make_sprite_position  -20, -32
-	obj0e_make_sprite_position  -19, -31
-Obj0E_TailsHand_Positions_End
-; ===========================================================================
-; Obj0E_SmallStar:
-Obj0E_FallingStar:
-	moveq	#0,d0
-	move.b	routine_secondary(a0),d0
-	move.w	Obj0E_FallingStar_Index(pc,d0.w),d1
-	jmp	Obj0E_FallingStar_Index(pc,d1.w)
-; ===========================================================================
-; off_132A2:
-Obj0E_FallingStar_Index: offsetTable
-	offsetTableEntry.w Obj0E_FallingStar_Init	; 0
-	offsetTableEntry.w Obj0E_FallingStar_Main	; 2
-; ===========================================================================
-; Obj0E_SmallStar_Init:
-Obj0E_FallingStar_Init:
-	addq.b	#2,routine_secondary(a0)	; Obj0E_FallingStar_Main
-	move.b	#$C,mapping_frame(a0)
-	move.b	#5,priority(a0)
-	move.w	#spriteScreenPositionXCentered(80),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-112),y_pixel(a0)
-	move.b	#3,anim(a0)
-	move.w	#140,obj0e_counter(a0)
-	bra.w	DisplaySprite
-; ===========================================================================
-; loc_132D2: Obj0E_SmallStar_Main:
-Obj0E_FallingStar_Main:
-	subq.w	#1,obj0e_counter(a0)
-	bmi.w	DeleteObject
-
-	; Make the star fall.
-	subq.w	#2,x_pixel(a0)
-	addq.w	#1,y_pixel(a0)
-
-	lea	(Ani_obj0E).l,a1
-	bsr.w	AnimateSprite
-	bra.w	DisplaySprite
 ; ===========================================================================
 ; ----------------------------------------------------------------------------
 ; Object C9 - "Palette changing handler" from title screen
@@ -26861,116 +26226,10 @@ loc_134B6:
 	move.b	d4,(a0)+
 	rts
 
-; ||||||||||||||| S U B R O U T I N E |||||||||||||||||||||||||||||||||||||||
 
 
-TitleScreen_SetFinalState:
-	tst.b	obj0e_intro_complete(a0)
-	bne.w	+	; rts
-
-	move.b	(Ctrl_1_Press).w,d0
-	or.b	(Ctrl_2_Press).w,d0
-	andi.b	#button_up_mask|button_down_mask|button_left_mask|button_right_mask|button_B_mask|button_C_mask|button_A_mask,(Ctrl_1_Press).w
-	andi.b	#button_up_mask|button_down_mask|button_left_mask|button_right_mask|button_B_mask|button_C_mask|button_A_mask,(Ctrl_2_Press).w
-	andi.b	#button_start_mask,d0
-	beq.w	+	; rts
-
-	; Initialise Sonic object.
-	st.b	obj0e_intro_complete(a0)
-	move.b	#$10,routine_secondary(a0)
-	move.b	#$12,mapping_frame(a0)
-	move.w	#spriteScreenPositionXCentered(-24),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-88),y_pixel(a0)
-
-	; Initialise Sonic's hand object.
-	lea	(IntroSonicHand).w,a1
-	bsr.w	TitleScreen_InitSprite
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$A,routine(a1)
-	move.b	#2,priority(a1)
-	move.b	#9,mapping_frame(a1)
-	move.b	#4,routine_secondary(a1)
-	move.w	#spriteScreenPositionXCentered(33),x_pixel(a1)
-	move.w	#spriteScreenPositionYCentered(-47),y_pixel(a1)
-
-	; Initialise Tails object.
-	lea	(IntroTails).w,a1
-	bsr.w	TitleScreen_InitSprite
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#4,routine(a1)
-	move.b	#4,mapping_frame(a1)
-	move.b	#6,routine_secondary(a1)
-	move.b	#3,priority(a1)
-	move.w	#spriteScreenPositionXCentered(-88),x_pixel(a1)
-	move.w	#spriteScreenPositionYCentered(-80),y_pixel(a1)
-
-	; Initialise Tails' hand object.
-	lea	(IntroTailsHand).w,a1
-	bsr.w	TitleScreen_InitSprite
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#$10,routine(a1)
-	move.b	#2,priority(a1)
-	move.b	#$13,mapping_frame(a1)
-	move.b	#4,routine_secondary(a1)
-	move.w	#spriteScreenPositionXCentered(-19),x_pixel(a1)
-	move.w	#spriteScreenPositionYCentered(-31),y_pixel(a1)
-
-	; Initialise top-of-emblem object.
-	lea	(IntroEmblemTop).w,a1
-	move.b	#ObjID_TitleIntro,id(a1)
-	move.b	#6,subtype(a1)
-
-	; Initialise sprite mask object.
-	bsr.w	Obj0E_LoadMaskingSprite
-
-	; Initialise title screen menu object.
-	move.b	#ObjID_TitleMenu,(TitleScreenMenu+id).w
-
-	; Delete palette-changer object.
-	lea	(TitleScreenPaletteChanger).w,a1
-	bsr.w	DeleteObject2
-
-	; Load palette line 4.
-	lea_	Pal_1342C,a1
-	lea	(Normal_palette_line4).w,a2
-	moveq	#bytesToLcnt(palette_line_size),d6
--	move.l	(a1)+,(a2)+
-	dbf	d6,-
-
-	; Load palette line 3.
-	lea_	Pal_1340C,a1
-	lea	(Normal_palette_line3).w,a2
-	moveq	#bytesToLcnt(palette_line_size),d6
--	move.l	(a1)+,(a2)+
-	dbf	d6,-
-
-	; Load palette line 1.
-	lea_	Pal_133EC,a1
-	lea	(Normal_palette).w,a2
-	moveq	#bytesToLcnt(palette_line_size),d6
--	move.l	(a1)+,(a2)+
-	dbf	d6,-
-
-	; Play title screen music if it isn't already playing.
-	tst.b	obj0e_music_playing(a0)
-	bne.s	+
-	moveq	#signextendB(MusID_Title),d0
-	jsrto	JmpTo4_PlayMusic
-+
-	rts
-; End of function TitleScreen_SetFinalState
 
 
-; ||||||||||||||| S U B R O U T I N E |||||||||||||||||||||||||||||||||||||||
-
-
-; sub_135EA:
-TitleScreen_InitSprite:
-	move.l	#Obj0E_MapUnc_136A8,mappings(a1)
-	move.w	#make_art_tile(ArtTile_ArtNem_TitleSprites,0,0),art_tile(a1)
-	move.b	#4,priority(a1)
-	rts
-; End of function TitleScreen_InitSprite
 
 ; ===========================================================================
 ; ----------------------------------------------------------------------------
@@ -26992,8 +26251,8 @@ Obj0F_Index:	offsetTable
 ; loc_13616:
 Obj0F_Init:
 	addq.b	#2,routine(a0) ; => Obj0F_Main
-	move.w	#spriteScreenPositionXCentered(8),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(92),y_pixel(a0)
+	move.w	#128+320/2+8,x_pixel(a0)
+	move.w	#128+224/2+92,y_pixel(a0)
 	move.l	#Obj0F_MapUnc_13B70,mappings(a0)
 	move.w	#make_art_tile(ArtTile_VRAM_Start,0,0),art_tile(a0)
 	bsr.w	Adjust2PArtPointer
@@ -27028,59 +26287,6 @@ Obj0F_Main:
 +
 	rts
 ; ===========================================================================
-; animation script
-; off_13686:
-Ani_obj0E:	offsetTable
-		offsetTableEntry.w Ani_obj0E_Sonic		; 0
-		offsetTableEntry.w Ani_obj0E_Tails		; 1
-		offsetTableEntry.w Ani_obj0E_FlashingStar	; 2
-		offsetTableEntry.w Ani_obj0E_FallingStar	; 3
-; byte_1368E:
-Ani_obj0E_Sonic:
-	dc.b   1
-	dc.b   5
-	dc.b   6
-	dc.b   7
-    if ~~fixBugs
-	; This appears to be a leftover prototype frame: it's a duplicate of
-	; frame $12, except Sonic is missing his right arm. The old frame
-	; being here in this animation script causes Sonic to appear with
-	; both of his arms missing for a single frame.
-	dc.b   8
-    endif
-	dc.b $FA
-	even
-; byte_13694:
-Ani_obj0E_Tails:
-	dc.b   1
-	dc.b   0
-	dc.b   1
-	dc.b   2
-	dc.b   3
-	dc.b   4
-	dc.b $FA
-	even
-; byte_1369C:
-Ani_obj0E_FlashingStar:
-	dc.b   1
-	dc.b  $C
-	dc.b  $D
-	dc.b  $E
-	dc.b  $D
-	dc.b  $C
-	dc.b $FA
-	even
-; byte_136A4:
-Ani_obj0E_FallingStar:
-	dc.b   3
-	dc.b  $C
-	dc.b  $F
-	dc.b $FF
-	even
-; -----------------------------------------------------------------------------
-; Sprite Mappings - Flashing stars from intro (Obj0E)
-; -----------------------------------------------------------------------------
-Obj0E_MapUnc_136A8:	include "mappings/sprite/obj0E.asm"
 ; -----------------------------------------------------------------------------
 ; sprite mappings
 ; -----------------------------------------------------------------------------
@@ -27145,7 +26351,7 @@ Obj34_Init:
 
 	move.w	#$26,(TitleCard_Bottom+titlecard_location).w
 	clr.w	(Vscroll_Factor_FG).w
-	move.w	#-screen_height,(Vscroll_Factor_P2_FG).w
+	move.w	#-224,(Vscroll_Factor_P2_FG).w
 
 	clearRAM Horiz_Scroll_Buf,Horiz_Scroll_Buf+HorizontalScrollBuffer.len
 
@@ -27161,16 +26367,16 @@ Obj34_Init:
 ; - the Y position (word)
 titlecardobjdata macro routine,frame,width,duration,xstart,xstop,y
 	dc.b routine,frame,width,duration
-	dc.w xstart,xstop,y
+	dc.w 128+xstart,128+xstop,128+y
     endm
 ; word_13CD4:
 Obj34_TitleCardData:
-	titlecardobjdata  8,   0, $80, $1B, spriteScreenPositionX(screen_width+128), spriteScreenPositionXCentered(  0), spriteScreenPositionYCentered(-56)	; zone name
-	titlecardobjdata $A, $11, $40, $1C, spriteScreenPositionX(             -88), spriteScreenPositionXCentered( 40), spriteScreenPositionYCentered(-32)	; "ZONE"
-	titlecardobjdata $C, $12, $18, $1C, spriteScreenPositionX(             -24), spriteScreenPositionXCentered(104), spriteScreenPositionYCentered(-32)	; act number
-	titlecardobjdata  2,   0,   0,   0,                                       0,                                  0,                                  0	; blue background
-	titlecardobjdata  4, $15, $48,   8, spriteScreenPositionX(screen_width+232), spriteScreenPositionXCentered( 72), spriteScreenPositionYCentered( 48)	; bottom yellow part
-	titlecardobjdata  6, $16,   8, $15, spriteScreenPositionX(               0), spriteScreenPositionXCentered(-48), spriteScreenPositionYCentered(  0)	; left red part
+	titlecardobjdata  8,   0, $80, $1B, 320+128,   160,    56	; zone name
+	titlecardobjdata $A, $11, $40, $1C,    0-88,   200,    80	; "ZONE"
+	titlecardobjdata $C, $12, $18, $1C,    0-24,   264,    80	; act number
+	titlecardobjdata  2,   0,   0,   0,   0-128, 0-128, 0-128	; blue background
+	titlecardobjdata  4, $15, $48,   8, 320+232,   232,   160	; bottom yellow part
+	titlecardobjdata  6, $16,   8, $15,       0,   112,   112	; left red part
 Obj34_TitleCardData_End:
 
 ; ||||||||||||||| S U B R O U T I N E |||||||||||||||||||||||||||||||||||||||
@@ -27300,7 +26506,7 @@ Obj34_MoveTowardsTargetPosition:
 	sub.w	d0,x_pixel(a0)
 	; If target lies very far off-screen, then don't bother trying to display it.
 	; This is because the sprite coordinates are prone to overflow and underflow.
-	cmpi.w	#$200,x_pixel(a0)
+	cmpi.w	#128+320+64,x_pixel(a0)
 	bhi.s	.return
 .display:
 	bra.w	DisplaySprite
@@ -27374,8 +26580,6 @@ loc_13EC4:
 	neg.w	d0
 +
 	sub.w	d0,x_pixel(a0)
-	; If target lies very far off-screen, then don't bother trying to display it.
-	; This is because the sprite coordinates are prone to overflow and underflow.
 	cmpi.w	#$200,x_pixel(a0)
 	bhi.s	+	; rts
 	bra.w	DisplaySprite
@@ -27417,8 +26621,6 @@ Obj34_WaitAndGoAway:
 	neg.w	d0
 +
 	sub.w	d0,x_pixel(a0)
-	; If target lies very far off-screen, then don't bother trying to display it.
-	; This is because the sprite coordinates are prone to overflow and underflow.
 	cmpi.w	#$200,x_pixel(a0)
 	bhi.s	Obj34_LoadStandardWaterAndAnimalArt
 +
@@ -27485,12 +26687,12 @@ Obj39_Init:
 ; ---------------------------------------------------------------------------
 +
 	addq.b	#2,routine(a0)
-	move.w	#spriteScreenPositionX(-48),x_pixel(a0)
+	move.w	#$50,x_pixel(a0)
 	btst	#0,mapping_frame(a0)
 	beq.s	+
-	move.w	#spriteScreenPositionX(screen_width+48),x_pixel(a0)
+	move.w	#$1F0,x_pixel(a0)
 +
-	move.w	#spriteScreenPositionYCentered(0),y_pixel(a0)
+	move.w	#$F0,y_pixel(a0)
 	move.l	#Obj39_MapUnc_14C6C,mappings(a0)
 	move.w	#make_art_tile(ArtTile_ArtNem_Game_Over,0,1),art_tile(a0)
 	bsr.w	Adjust2PArtPointer
@@ -27498,8 +26700,8 @@ Obj39_Init:
 	move.b	#0,priority(a0)
 ; loc_13FCC:
 Obj39_SlideIn:
-	moveq	#16,d1
-	cmpi.w	#spriteScreenPositionXCentered(0),x_pixel(a0)
+	moveq	#$10,d1
+	cmpi.w	#$120,x_pixel(a0)
 	beq.s	Obj39_SetTimer
 	blo.s	+
 	neg.w	d1
@@ -27754,8 +26956,8 @@ loc_14214:
 loc_14220:
 	_move.b	#ObjID_Results,id(a1) ; load obj3A (uses screen-space)
 	move.b	#$12,routine(a1)
-	move.w	#spriteScreenPositionXCentered(104),x_pixel(a1)
-	move.w	#spriteScreenPositionYCentered(40),y_pixel(a1)
+	move.w	#$188,x_pixel(a1)
+	move.w	#$118,y_pixel(a1)
 	move.l	#MapUnc_EOLTitleCards,mappings(a1)
 	bsr.w	Adjust2PArtPointer2
 	move.b	#0,render_flags(a1)
@@ -27947,7 +27149,7 @@ LevelOrder_2P: zoneOrderedTable 2,2	; WrdArr_LevelOrder_2P
     zoneTableEnd
 
 results_screen_object macro startx, targetx, y, routine, frame
-	dc.w	startx, targetx, spriteScreenPositionYCentered(y)
+	dc.w	128+startx, 128+targetx, 128+y
 	dc.b	routine, frame
     endm
 
@@ -27955,15 +27157,15 @@ results_screen_object_size = 8
 
 ; byte_14380:
 Obj3A_SubObjectMetadata:
-	;                               start X,          target X, start Y, routine, map frame
-	results_screen_object  spriteScreenPositionX(            0-96), spriteScreenPositionXCentered(  0),     -56,       2,         0
-	results_screen_object  spriteScreenPositionX( screen_width+64), spriteScreenPositionXCentered(-32),     -38,       4,         3
-	results_screen_object  spriteScreenPositionX(screen_width+128), spriteScreenPositionXCentered( 32),     -38,       6,         4
-	results_screen_object  spriteScreenPositionX(screen_width+184), spriteScreenPositionXCentered( 88),     -50,       8,         6
-	results_screen_object  spriteScreenPositionX(screen_width+400), spriteScreenPositionXCentered(  0),      48,       4,         9
-	results_screen_object  spriteScreenPositionX(screen_width+352), spriteScreenPositionXCentered(  0),       0,       4,        $A
-	results_screen_object  spriteScreenPositionX(screen_width+368), spriteScreenPositionXCentered(  0),      16,       4,        $B
-	results_screen_object  spriteScreenPositionX(screen_width+384), spriteScreenPositionXCentered(  0),      32,     $16,        $E
+	;                      start X, target X, start Y, routine, map frame
+	results_screen_object     0-96,    320/2,      56,       2,         0
+	results_screen_object   320+64, 320/2-32,      74,       4,         3
+	results_screen_object  320+128, 320/2+32,      74,       6,         4
+	results_screen_object  320+184, 320/2+88,      62,       8,         6
+	results_screen_object  320+400,    320/2,     160,       4,         9
+	results_screen_object  320+352,    320/2,     112,       4,        $A
+	results_screen_object  320+368,    320/2,     128,       4,        $B
+	results_screen_object  320+384,    320/2,     144,     $16,        $E
 Obj3A_SubObjectMetadata_End:
 ; ===========================================================================
 ; ----------------------------------------------------------------------------
@@ -28121,7 +27323,7 @@ Obj6F_P1Rings:
 	bne.s	+										; Branch if not
 	move.w	#5000,(Bonus_Countdown_1).w				; Perfect bonus
 	move.b	#$2A,routine(a0)	; => Obj6F_PerfectBonus
-	move.w	#spriteScreenPositionYCentered(48),y_pixel(a0)
+	move.w	#$120,y_pixel(a0)
 	st.b	(Update_Bonus_score).w	; set to -1 (update)
 	move.w	#SndID_Signpost,d0
 	jsr	(PlaySound).l
@@ -28131,7 +27333,7 @@ Obj6F_P1Rings:
 +
 	move.w	(Player_mode).w,d0
 	beq.s	++
-	move.w	#spriteScreenPositionYCentered(48),y_pixel(a0)
+	move.w	#$120,y_pixel(a0)
 	subq.w	#1,d0
 	beq.s	++
 	moveq	#$E,d0		; "Miles rings"
@@ -28286,8 +27488,8 @@ Obj6F_InitAndMoveSuperMsg:
 	lea	(SpecialStageResults2).w,a1
 	_move.b	id(a0),id(a1) ; load obj6F; (uses screen-space)
 	clr.w	x_pixel(a1)
-	move.w	#spriteScreenPositionXCentered(0),titlecard_x_target(a1)
-	move.w	#spriteScreenPositionYCentered(-60),y_pixel(a1)
+	move.w	#$120,titlecard_x_target(a1)
+	move.w	#$B4,y_pixel(a1)
 	move.b	#$14,routine(a1)						; => BranchTo3_Obj34_MoveTowardsTargetPosition
 	move.b	#$1C,mapping_frame(a1)					; "Super Sonic"
 	move.l	#Obj6F_MapUnc_14ED0,mappings(a1)
@@ -28309,7 +27511,7 @@ Obj6F_MoveTowardsSourcePosition:
 	sub.w	d0,x_pixel(a0)
 	; If target lies very far off-screen, then don't bother trying to display it.
 	; This is because the sprite coordinates are prone to overflow and underflow.
-	cmpi.w	#$200,x_pixel(a0)
+	cmpi.w	#128+320+64,x_pixel(a0)
 	bhi.s	.return
 ;BranchTo20_DisplaySprite
 .display:
@@ -28332,20 +27534,20 @@ Obj6F_MoveAndDisplay:
 ; ===========================================================================
 ;byte_14752
 Obj6F_SubObjectMetaData:
-	;                                start X,          target X, start Y, routine, map frame
-	results_screen_object  spriteScreenPositionX(screen_width+128), spriteScreenPositionXCentered(0),     -70,       2,         0		; "Special Stage"
-	results_screen_object                                        0, spriteScreenPositionXCentered(0),     -88,       4,         1		; "Sonic got a"
-	results_screen_object  spriteScreenPositionXCentered( -8),                                     0,     -44,       6,         5		; Emerald 0
-	results_screen_object  spriteScreenPositionXCentered( 16),                                     0,     -32,       8,         6		; Emerald 1
-	results_screen_object  spriteScreenPositionXCentered( 16),                                     0,      -8,      $A,         7		; Emerald 2
-	results_screen_object  spriteScreenPositionXCentered( -8),                                     0,       4,      $C,         8		; Emerald 3
-	results_screen_object  spriteScreenPositionXCentered(-32),                                     0,      -8,      $E,         9		; Emerald 4
-	results_screen_object  spriteScreenPositionXCentered(-32),                                     0,     -32,     $10,        $A		; Emerald 5
-	results_screen_object  spriteScreenPositionXCentered( -8),                                     0,     -20,     $12,        $B		; Emerald 6
-	results_screen_object  spriteScreenPositionX(screen_width+368), spriteScreenPositionXCentered(0),      24,     $14,        $C		; Score
-	results_screen_object  spriteScreenPositionX(screen_width+384), spriteScreenPositionXCentered(0),      40,     $16,        $D		; Sonic Rings
-	results_screen_object  spriteScreenPositionX(screen_width+400), spriteScreenPositionXCentered(0),      56,     $18,        $E		; Miles Rings
-	results_screen_object  spriteScreenPositionX(screen_width+416), spriteScreenPositionXCentered(0),      72,     $1A,       $10		; Gems Bonus
+	;                       start X, target X, start Y, routine, map frame
+	results_screen_object   320+128,    320/2,      42,       2,         0		; "Special Stage"
+	results_screen_object     0-128,    320/2,      24,       4,         1		; "Sonic got a"
+	results_screen_object   320/2-8,    0-128,      68,       6,         5		; Emerald 0
+	results_screen_object  320/2+16,    0-128,      80,       8,         6		; Emerald 1
+	results_screen_object  320/2+16,    0-128,     104,      $A,         7		; Emerald 2
+	results_screen_object   320/2-8,    0-128,     116,      $C,         8		; Emerald 3
+	results_screen_object  320/2-32,    0-128,     104,      $E,         9		; Emerald 4
+	results_screen_object  320/2-32,    0-128,      80,     $10,        $A		; Emerald 5
+	results_screen_object   320/2-8,    0-128,      92,     $12,        $B		; Emerald 6
+	results_screen_object   320+368,    320/2,     136,     $14,        $C		; Score
+	results_screen_object   320+384,    320/2,     152,     $16,        $D		; Sonic Rings
+	results_screen_object   320+400,    320/2,     168,     $18,        $E		; Miles Rings
+	results_screen_object   320+416,    320/2,     184,     $1A,       $10		; Gems Bonus
 Obj6F_SubObjectMetaData_End:
 
 ; -------------------------------------------------------------------------------
@@ -28816,7 +28018,7 @@ loc_155FE:
 loc_15604:
 	move.l	d6,(a6)
 	dbf	d3,loc_15604
-	addi.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d0
+	addi.l	#vdpCommDelta($0080),d0
 	dbf	d4,loc_155FE
 
 loc_15614:
@@ -28918,7 +28120,7 @@ loc_156F4:
 -	move.l	d0,VDP_control_port-VDP_data_port(a6)
 	move.l	d6,(a6)
 	move.l	d6,(a6)
-	addi.l	#vdpCommDelta(gameplay_plane_width/tile_width*2),d0
+	addi.l	#vdpCommDelta($0080),d0
 	dbf	d4,-
 
 loc_15714:
@@ -29719,7 +28921,6 @@ ObjPtr_SmallBubbles:	dc.l Obj0A	; Small bubbles from Sonic's face while underwat
 ObjPtr_TippingFloor:	dc.l Obj0B	; Section of pipe that tips you off from CPZ
 			dc.l Obj0C	; Small floating platform (unused)
 ObjPtr_Signpost:	dc.l Obj0D	; End of level signpost
-ObjPtr_TitleIntro:	dc.l Obj0E	; Title screen intro animation
 ObjPtr_TitleMenu:	dc.l Obj0F	; Title screen menu
 ObjPtr_TailsSS:		dc.l Obj10	; Tails in Special Stage
 ObjPtr_Bridge:		dc.l Obj11	; Bridge in Emerald Hill Zone and Hidden Palace Zone
@@ -30019,7 +29220,7 @@ MarkObjGone:
 	move.w	x_pos(a0),d0
 	andi.w	#$FF80,d0
 	sub.w	(Camera_X_pos_coarse).w,d0
-	cmpi.w	#$80+roundToNextMultiple(screen_width,$80)+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded
+	cmpi.w	#$80+320+$40+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded (the $40 is there to round up 320 to a multiple of $80)
 	bhi.w	+
 	bra.w	DisplaySprite
 
@@ -30040,7 +29241,7 @@ MarkObjGone2:
 +
 	andi.w	#$FF80,d0
 	sub.w	(Camera_X_pos_coarse).w,d0
-	cmpi.w	#$80+roundToNextMultiple(screen_width,$80)+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded
+	cmpi.w	#$80+320+$40+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded (the $40 is there to round up 320 to a multiple of $80)
 	bhi.w	+
 	bra.w	DisplaySprite
 +
@@ -30063,7 +29264,7 @@ MarkObjGone3:
 	move.w	x_pos(a0),d0
 	andi.w	#$FF80,d0
 	sub.w	(Camera_X_pos_coarse).w,d0
-	cmpi.w	#$80+roundToNextMultiple(screen_width,$80)+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded
+	cmpi.w	#$80+320+$40+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded (the $40 is there to round up 320 to a multiple of $80)
 	bhi.w	+
 	rts
 +
@@ -30083,7 +29284,7 @@ MarkObjGone_P1:
 	move.w	x_pos(a0),d0
 	andi.w	#$FF80,d0
 	sub.w	(Camera_X_pos_coarse).w,d0
-	cmpi.w	#$80+roundToNextMultiple(screen_width,$80)+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded
+	cmpi.w	#$80+320+$40+$80,d0	; This gives an object $80 pixels of room offscreen before being unloaded (the $40 is there to round up 320 to a multiple of $80)
 	bhi.w	+
 	bra.w	DisplaySprite
 +
@@ -30373,9 +29574,9 @@ BuildSprites_ObjLoop:
 	bmi.w	BuildSprites_NextObj	; if it is, branch
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1	; is the object left edge to the right of the screen?
+	cmpi.w	#320,d1	; is the object left edge to the right of the screen?
 	bge.w	BuildSprites_NextObj	; if it is, branch
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	btst	#render_flags.explicit_height,d4		; is the accurate Y check flag set?
 	beq.s	BuildSprites_ApproxYCheck	; if not, branch
 	moveq	#0,d0
@@ -30387,9 +29588,9 @@ BuildSprites_ObjLoop:
 	bmi.s	BuildSprites_NextObj	; if the object is above the screen
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.s	BuildSprites_NextObj	; if the object is below the screen
-	addi.w	#spriteScreenPositionY(0),d2
+	addi.w	#128,d2
 	bra.s	BuildSprites_DrawSprite
 ; ===========================================================================
 ; loc_166A6:
@@ -30402,11 +29603,11 @@ BuildSprites_ScreenSpaceObj:
 BuildSprites_ApproxYCheck:
 	move.w	y_pos(a0),d2
 	sub.w	4(a1),d2
-	addi.w	#spriteScreenPositionY(0),d2
+	addi.w	#128,d2
 	andi.w	#$7FF,d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2	; assume Y radius to be 32 pixels
+	cmpi.w	#-32+128,d2	; assume Y radius to be 32 pixels
 	blo.s	BuildSprites_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_NextObj
 ; loc_166CC:
 BuildSprites_DrawSprite:
@@ -30476,9 +29677,9 @@ BuildSprites_MultiDraw:
 	bmi.w	BuildSprites_MultiDraw_NextObj
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1
+	cmpi.w	#320,d1
 	bge.w	BuildSprites_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 
 	; check if object is within Y bounds
 	btst	#4,d4
@@ -30492,18 +29693,18 @@ BuildSprites_MultiDraw:
 	bmi.w	BuildSprites_MultiDraw_NextObj
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.w	BuildSprites_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionY(0),d2
+	addi.w	#128,d2
 	bra.s	++
 +
 	move.w	y_pos(a0),d2
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY(0),d2
+	addi.w	#128,d2
 	andi.w	#$7FF,d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2
+	cmpi.w	#-32+128,d2
 	blo.s	BuildSprites_MultiDraw_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_MultiDraw_NextObj
 +
 	moveq	#0,d1
@@ -30529,10 +29730,10 @@ BuildSprites_MultiDraw:
 -	swap	d0
 	move.w	(a6)+,d3	; get X pos
 	sub.w	(a4),d3
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	move.w	(a6)+,d2	; get Y pos
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY(0),d2
+	addi.w	#128,d2
 	andi.w	#$7FF,d2
 	addq.w	#1,a6
 	moveq	#0,d1
@@ -30844,9 +30045,9 @@ BuildSprites_P1_ObjLoop:
 	bmi.w	BuildSprites_P1_NextObj
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1
+	cmpi.w	#320,d1
 	bge.s	BuildSprites_P1_NextObj
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	btst	#render_flags.explicit_height,d4
 	beq.s	BuildSprites_P1_ApproxYCheck
 	moveq	#0,d0
@@ -30858,28 +30059,28 @@ BuildSprites_P1_ObjLoop:
 	bmi.s	BuildSprites_P1_NextObj
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.s	BuildSprites_P1_NextObj
-	addi.w	#spriteScreenPositionY2P(0),d2
+	addi.w	#256,d2
 	bra.s	BuildSprites_P1_DrawSprite
 ; ===========================================================================
 ; loc_16A00:
 BuildSprites_P1_ScreenSpaceObj:
 	move.w	y_pixel(a0),d2
 	move.w	x_pixel(a0),d3
-	addi.w	#spriteScreenPositionY2P(0)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128,d2
 	bra.s	BuildSprites_P1_DrawSprite
 ; ===========================================================================
 ; loc_16A0E:
 BuildSprites_P1_ApproxYCheck:
 	move.w	y_pos(a0),d2
 	sub.w	4(a1),d2
-	addi.w	#spriteScreenPositionY(0),d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2
+	addi.w	#128,d2
+	cmpi.w	#-32+128,d2
 	blo.s	BuildSprites_P1_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_P1_NextObj
-	addi.w	#spriteScreenPositionY2P(0)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128,d2
 ; loc_16A2A:
 BuildSprites_P1_DrawSprite:
 	movea.l	mappings(a0),a1
@@ -30981,9 +30182,9 @@ BuildSprites_P2_ObjLoop:
 	bmi.w	BuildSprites_P2_NextObj
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1
+	cmpi.w	#320,d1
 	bge.s	BuildSprites_P2_NextObj
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	btst	#render_flags.explicit_height,d4
 	beq.s	BuildSprites_P2_ApproxYCheck
 	moveq	#0,d0
@@ -30995,28 +30196,28 @@ BuildSprites_P2_ObjLoop:
 	bmi.s	BuildSprites_P2_NextObj
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.s	BuildSprites_P2_NextObj
-	addi.w	#spriteScreenPositionY2P(screen_height),d2
+	addi.w	#256+224,d2
 	bra.s	BuildSprites_P2_DrawSprite
 ; ===========================================================================
 ; loc_16B14:
 BuildSprites_P2_ScreenSpaceObj:
 	move.w	y_pixel(a0),d2
 	move.w	x_pixel(a0),d3
-	addi.w	#spriteScreenPositionY2P(screen_height)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128+224,d2
 	bra.s	BuildSprites_P2_DrawSprite
 ; ===========================================================================
 ; loc_16B22:
 BuildSprites_P2_ApproxYCheck:
 	move.w	y_pos(a0),d2
 	sub.w	4(a1),d2
-	addi.w	#spriteScreenPositionY(0),d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2
+	addi.w	#128,d2
+	cmpi.w	#-32+128,d2
 	blo.s	BuildSprites_P2_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_P2_NextObj
-	addi.w	#spriteScreenPositionY2P(screen_height)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128+224,d2
 ; loc_16B3E:
 BuildSprites_P2_DrawSprite:
 	movea.l	mappings(a0),a1
@@ -31083,9 +30284,9 @@ BuildSprites_P1_MultiDraw:
 	bmi.w	BuildSprites_P1_MultiDraw_NextObj
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1
+	cmpi.w	#320,d1
 	bge.w	BuildSprites_P1_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	btst	#4,d4
 	beq.s	+
 	moveq	#0,d0
@@ -31097,19 +30298,19 @@ BuildSprites_P1_MultiDraw:
 	bmi.w	BuildSprites_P1_MultiDraw_NextObj
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.w	BuildSprites_P1_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionY2P(0),d2
+	addi.w	#256,d2
 	bra.s	++
 +
 	move.w	y_pos(a0),d2
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY(0),d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2
+	addi.w	#128,d2
+	cmpi.w	#-32+128,d2
 	blo.s	BuildSprites_P1_MultiDraw_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_P1_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionY2P(0)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128,d2
 +
 	moveq	#0,d1
 	move.b	mainspr_mapframe(a0),d1
@@ -31134,10 +30335,10 @@ BuildSprites_P1_MultiDraw:
 -	swap	d0
 	move.w	(a6)+,d3
 	sub.w	(a4),d3
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	move.w	(a6)+,d2
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY2P(0),d2
+	addi.w	#256,d2
 	addq.w	#1,a6
 	moveq	#0,d1
 	move.b	(a6)+,d1
@@ -31173,9 +30374,9 @@ BuildSprites_P2_MultiDraw:
 	bmi.w	BuildSprites_P2_MultiDraw_NextObj
 	move.w	d3,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_width,d1
+	cmpi.w	#320,d1
 	bge.w	BuildSprites_P2_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	btst	#4,d4
 	beq.s	+
 	moveq	#0,d0
@@ -31187,19 +30388,19 @@ BuildSprites_P2_MultiDraw:
 	bmi.w	BuildSprites_P2_MultiDraw_NextObj
 	move.w	d2,d1
 	sub.w	d0,d1
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.w	BuildSprites_P2_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionY2P(screen_height),d2
+	addi.w	#256+224,d2
 	bra.s	++
 +
 	move.w	y_pos(a0),d2
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY(0),d2
-	cmpi.w	#spriteScreenPositionY(0-32),d2
+	addi.w	#128,d2
+	cmpi.w	#-32+128,d2
 	blo.s	BuildSprites_P2_MultiDraw_NextObj
-	cmpi.w	#spriteScreenPositionY(screen_height+32),d2
+	cmpi.w	#32+128+224,d2
 	bhs.s	BuildSprites_P2_MultiDraw_NextObj
-	addi.w	#spriteScreenPositionY2P(screen_height)-spriteScreenPositionY(0),d2 ; Rebase from 1p to 2p coordinate space
+	addi.w	#128+224,d2
 +
 	moveq	#0,d1
 	move.b	mainspr_mapframe(a0),d1
@@ -31224,10 +30425,10 @@ BuildSprites_P2_MultiDraw:
 -	swap	d0
 	move.w	(a6)+,d3
 	sub.w	(a4),d3
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	move.w	(a6)+,d2
 	sub.w	4(a4),d2
-	addi.w	#spriteScreenPositionY2P(screen_height),d2
+	addi.w	#256+224,d2
 	addq.w	#1,a6
 	moveq	#0,d1
 	move.b	(a6)+,d1
@@ -31529,12 +30730,12 @@ ChkObjectVisible:
 	move.w	x_pos(a0),d0	; a0=object
 	sub.w	(Camera_X_pos).w,d0
 	bmi.s	.offscreen
-	cmpi.w	#screen_width,d0
+	cmpi.w	#320,d0
 	bge.s	.offscreen
 	move.w	y_pos(a0),d1
 	sub.w	(Camera_Y_pos).w,d1
 	bmi.s	.offscreen
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.s	.offscreen
 	moveq	#0,d0
 	rts
@@ -31556,12 +30757,12 @@ ChkPartiallyVisible:
 	bmi.s	.offscreen
 	add.w	d1,d1
 	sub.w	d1,d0
-	cmpi.w	#screen_width,d0
+	cmpi.w	#320,d0
 	bge.s	.offscreen
 	move.w	y_pos(a0),d1
 	sub.w	(Camera_Y_pos).w,d1
 	bmi.s	.offscreen
-	cmpi.w	#screen_height,d1
+	cmpi.w	#224,d1
 	bge.s	.offscreen
 	moveq	#0,d0
 	rts
@@ -31611,7 +30812,7 @@ RingsManager_Init:
 	bhi.s	-		; if it is, check next ring
 	move.w	a1,(Ring_start_addr).w	; set start addresses
 	move.w	a1,(Ring_start_addr_P2).w
-	addi.w	#screen_width+16,d4	; advance by a screen
+	addi.w	#320+16,d4	; advance by a screen
 	bra.s	+
 -
 	lea	6(a1),a1	; load next ring
@@ -31664,7 +30865,7 @@ RingsManager_Main:
 	move.w	a1,(Ring_start_addr).w	; update start address
 
 	movea.w	(Ring_end_addr).w,a2
-	addi.w	#screen_width+16,d4
+	addi.w	#320+16,d4
 	bra.s	+
 -
 	lea	6(a2),a2
@@ -31705,7 +30906,7 @@ RingsManager_Main:
 	move.w	a1,(Ring_start_addr_P2).w	; update start address
 
 	movea.w	(Ring_end_addr_P2).w,a2
-	addi.w	#screen_width+16,d4
+	addi.w	#320+16,d4
 	bra.s	+
 -
 	lea	6(a2),a2
@@ -31834,7 +31035,7 @@ BuildRings_Loop:
 	bmi.w	BuildRings_NextRing	; if it has, branch
 	move.w	2(a0),d3	; get ring X pos
 	sub.w	(a3),d3		; subtract camera X pos
-	addi.w	#spriteScreenPositionX(0),d3		; screen top-left is 128x128 not 0x0
+	addi.w	#128,d3		; screen top is 128x128 not 0x0
 	move.w	4(a0),d2	; get ring Y pos
 	sub.w	4(a3),d2	; subtract camera Y pos
     if fixBugs
@@ -31850,10 +31051,10 @@ BuildRings_Loop:
 	; This line is completely redundant: an apparent leftover from one of the
 	; prototypes, back when the above 'andi' didn't exist. S3K gets rid of this.
 	bmi.s	BuildRings_NextRing
-	cmpi.w	#screen_height+8*2,d2
+	cmpi.w	#224+8*2,d2
 	; The above 'andi' means that this could just be a plain 'bhs'. S3K does this.
 	bge.s	BuildRings_NextRing	; if the ring is not on-screen, branch
-	addi.w	#spriteScreenPositionY(-8),d2
+	addi.w	#128-8,d2
 	lea	(MapUnc_Rings).l,a1
 	moveq	#0,d1
 	move.b	1(a0),d1	; get ring frame
@@ -31893,10 +31094,10 @@ BuildRings_NextRing:
 BuildRings_P1:
 	lea	(Camera_X_pos).w,a3
     if fixBugs
-	move.w	#spriteScreenPositionY2P(-8),d6
+	move.w	#128+128-8,d6
     else
 	; See the below bugfixes.
-	move.w	#spriteScreenPositionY(-8),d6
+	move.w	#128-8,d6
     endif
 	movea.w	(Ring_start_addr).w,a0
 	movea.w	(Ring_end_addr).w,a4
@@ -31914,10 +31115,10 @@ BuildRings_P1:
 BuildRings_P2:
 	lea	(Camera_X_pos_P2).w,a3
     if fixBugs
-	move.w	#spriteScreenPositionY2P(screen_height-8),d6
+	move.w	#224+128+128-8,d6
     else
 	; See the below bugfixes.
-	move.w	#spriteScreenPositionY(screen_height-8),d6
+	move.w	#224+128-8,d6
     endif
 	movea.w	(Ring_start_addr_P2).w,a0
 	movea.w	(Ring_end_addr_P2).w,a4
@@ -31931,7 +31132,7 @@ BuildRings_2P_Loop:
 	bmi.w	BuildRings_2P_NextRing	; if it has, branch
 	move.w	2(a0),d3	; get ring X pos
 	sub.w	(a3),d3		; subtract camera X pos
-	addi.w	#spriteScreenPositionX(0),d3
+	addi.w	#128,d3
 	move.w	4(a0),d2	; get ring Y pos
 	sub.w	4(a3),d2	; subtract camera Y pos
     if fixBugs
@@ -31943,13 +31144,13 @@ BuildRings_2P_Loop:
 	; when they go halfway off the top of the screen. To fix this, simply
 	; swap these two instructions around.
 	andi.w	#$7FF,d2
-	addi.w	#spriteScreenPositionY(8),d2
+	addi.w	#128+8,d2
     endif
 	; This line is completely redundant: an apparent leftover from one of the
 	; prototypes, back when the above 'andi' didn't exist. S3K gets rid of this.
 	bmi.s	BuildRings_2P_NextRing
     if fixBugs
-	cmpi.w	#screen_height+8*2,d2
+	cmpi.w	#224+8*2,d2
     else
 	; Fixing the above bug exposes another issue: this instruction and
 	; the above 'addi' should not have 128 added to their values. Instead,
@@ -31958,7 +31159,7 @@ BuildRings_2P_Loop:
 	; extends the vertical range in which rings are not culled, creating a
 	; 128 line region above the top of the screen where the rings are
 	; off-screen, but not culled.
-	cmpi.w	#spriteScreenPositionY(screen_height+8*2),d2
+	cmpi.w	#224+8*2+128,d2
     endif
 
 	; The above 'andi' means that this could just be a plain 'bhs'. S3K does this.
@@ -36450,7 +35651,7 @@ Obj01_ResetScr:
 	move.w	#0,(Sonic_Look_delay_counter).w
 ; loc_1A5E6:
 Obj01_ResetScr_Part2:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
 	beq.s	Obj01_UpdateSpeedOnGround	; if yes, branch.
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias).w	; either add 2
@@ -36752,7 +35953,7 @@ Sonic_KeepRolling:
 ; resets the screen to normal while rolling, like Obj01_ResetScr
 ; loc_1A85A:
 Obj01_Roll_ResetScr:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
 	beq.s	Sonic_SetRollSpeeds		; if yes, branch
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias).w	; either add 2
@@ -36864,7 +36065,7 @@ Sonic_ChgJumpDir:
 
 ; loc_1A932: Obj01_ResetScr2:
 Obj01_Jump_ResetScr:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias).w	; is screen in its default position?
 	beq.s	Sonic_JumpPeakDecelerate	; if yes, branch
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias).w	; either add 2
@@ -36920,7 +36121,7 @@ Sonic_LevelBound:
 	cmp.w	d1,d0			; has Sonic touched the left boundary?
 	bhi.s	Sonic_Boundary_Sides	; if yes, branch
 	move.w	(Camera_Max_X_pos).w,d0
-	addi.w	#screen_width-24,d0		; screen width - Sonic's width_pixels
+	addi.w	#320-24,d0		; screen width - Sonic's width_pixels
 	tst.b	(Current_Boss_ID).w
 	bne.s	+
 	addi.w	#$40,d0
@@ -36942,7 +36143,7 @@ Sonic_Boundary_CheckBottom:
 	move.w	d1,d0
 .skip:
     endif
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0		; has Sonic touched the bottom boundary?
 	blt.s	Sonic_Boundary_Bottom	; if yes, branch
 	rts
@@ -37358,7 +36559,7 @@ Sonic_ChargingSpindash:			; If still charging the dash...
 ; loc_1AD78:
 Obj01_Spindash_ResetScr:
 	addq.l	#4,sp
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias).w
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias).w
 	beq.s	loc_1AD8C
 	bhs.s	+
 	addq.w	#4,(Camera_Y_pos_bias).w
@@ -37852,7 +37053,7 @@ Sonic_HurtStop:
 	move.w	d1,d0
 .skip:
     endif
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	blt.w	JmpTo_KillCharacter
 	bsr.w	Sonic_DoLevelCollision
@@ -39424,7 +38625,7 @@ Obj02_ResetScr:
 	move.w	#0,(Tails_Look_delay_counter).w
 ; loc_1C1D6:
 Obj02_ResetScr_Part2:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
 	beq.s	Obj02_UpdateSpeedOnGround	; if yes, branch.
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias_P2).w	; either add 2
@@ -39731,7 +38932,7 @@ Tails_KeepRolling:
 ; resets the screen to normal while rolling, like Obj02_ResetScr
 ; loc_1C440:
 Obj02_Roll_ResetScr:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
 	beq.s	Tails_SetRollSpeed		; if yes, branch
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias_P2).w	; either add 2
@@ -39843,7 +39044,7 @@ Tails_ChgJumpDir:
 
 ; loc_1C518: Obj02_ResetScr2:
 Obj02_Jump_ResetScr:
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias_P2).w	; is screen in its default position?
 	beq.s	Tails_JumpPeakDecelerate			; if yes, branch
 	bhs.s	+				; depending on the sign of the difference,
 	addq.w	#4,(Camera_Y_pos_bias_P2).w	; either add 2
@@ -39899,7 +39100,7 @@ Tails_LevelBound:
 	cmp.w	d1,d0			; has Tails touched the left boundary?
 	bhi.s	Tails_Boundary_Sides	; if yes, branch
 	move.w	(Tails_Max_X_pos).w,d0
-	addi.w	#screen_width-24,d0		; screen width - Tails's width_pixels
+	addi.w	#320-24,d0		; screen width - Tails's width_pixels
 	tst.b	(Current_Boss_ID).w
 	bne.s	+
 	addi.w	#$40,d0
@@ -39921,7 +39122,7 @@ Tails_Boundary_CheckBottom:
 	move.w	d1,d0
 .skip:
     endif
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0		; has Tails touched the bottom boundary?
 	blt.s	Tails_Boundary_Bottom	; if yes, branch
 	rts
@@ -40213,7 +39414,7 @@ loc_1C7F8:
 
 loc_1C828:
 	addq.l	#4,sp
-	cmpi.w	#(screen_height/2)-16,(Camera_Y_pos_bias_P2).w
+	cmpi.w	#(224/2)-16,(Camera_Y_pos_bias_P2).w
 	beq.s	loc_1C83C
 	bhs.s	+
 	addq.w	#4,(Camera_Y_pos_bias_P2).w
@@ -40698,7 +39899,7 @@ Tails_HurtStop:
 	move.w	d1,d0
 .skip:
     endif
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	blt.w	JmpTo2_KillCharacter
 	bsr.w	Tails_DoLevelCollision
@@ -41620,12 +40821,12 @@ Obj0A_BecomeNumberMaybe:
 
 	move.w	x_pos(a0),d0
 	sub.w	(Camera_X_pos).w,d0
-	addi.w	#spriteScreenPositionX(0),d0
+	addi.w	#$80,d0
 	move.w	d0,x_pixel(a0)
 
 	move.w	y_pos(a0),d0
 	sub.w	(Camera_Y_pos).w,d0
-	addi.w	#spriteScreenPositionY(0),d0
+	addi.w	#$80,d0
 	move.w	d0,y_pixel(a0)
 
 	move.b	#$C,routine(a0) ; Obj0A_AirLeft
@@ -47441,7 +46642,7 @@ Obj16_Fall:
 	jsrto	JmpTo4_ObjectMove
 	addi.w	#$38,y_vel(a0)
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	bhs.s	+++	; rts
 	move.b	status(a0),d0
@@ -48546,7 +47747,7 @@ loc_2315A:
 	jsrto	JmpTo7_ObjectMove
 	addi.w	#$18,y_vel(a0)
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	bhs.s	loc_23176
 	jmpto	JmpTo21_DeleteObject
@@ -50258,7 +49459,7 @@ Obj46_Moving:
 	addi.w	#$18,y_vel(a0)
 	bmi.s	+
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	blo.s	loc_24BC4
 	jsr	(ObjCheckFloorDist).l
@@ -54051,7 +53252,7 @@ loc_27EE2:
 	move.l	d3,y_pos(a0)
 	addi_.w	#8,y_vel(a0)
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	bhs.s	return_27F0E
 	move.b	#0,subtype(a0)
@@ -70820,9 +70021,9 @@ Obj5B_Main:
 	bsr.w	loc_3551C
 	tst.w	x_pos(a0)
 	bmi.w	JmpTo63_DeleteObject
-	cmpi.w	#screen_width_ss,x_pos(a0)
+	cmpi.w	#256,x_pos(a0) ; Screen width
 	bhs.w	JmpTo63_DeleteObject
-	cmpi.w	#screen_height_ss,y_pos(a0)
+	cmpi.w	#224,y_pos(a0) ; Screen height
 	bgt.w	JmpTo63_DeleteObject
 	lea	(Ani_obj5B_obj60).l,a1
 	jsrto	JmpTo24_AnimateSprite
@@ -73921,7 +73122,7 @@ loc_374D8:
 ; loc_374F4:
 Obj97_DeathDrop:
 	move.w	(Camera_Max_Y_pos).w,d0
-	addi.w	#screen_height,d0
+	addi.w	#224,d0
 	cmp.w	y_pos(a0),d0
 	blo.w	JmpTo65_DeleteObject
 	jsrto	JmpTo8_ObjectMoveAndFall
@@ -77770,8 +76971,8 @@ ObjB0_Index:	offsetTable
 
 ObjB0_Init:
 	bsr.w	LoadSubObject
-	move.w	#spriteScreenPositionX(screen_width+40),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(0),y_pixel(a0)
+	move.w	#$1E8,x_pixel(a0)
+	move.w	#$F0,y_pixel(a0)
 	move.w	#$B,objoff_2A(a0)
 	move.w	#2,(SegaScr_VInt_Subrout).w
 	bset	#render_flags.x_flip,render_flags(a0)
@@ -77991,8 +77192,8 @@ ObjB1_Index:	offsetTable
 ObjB1_Init:
 	bsr.w	LoadSubObject
 	move.b	#4,mapping_frame(a0)
-	move.w	#spriteScreenPositionXCentered(84),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(-24),y_pixel(a0)
+	move.w	#$174,x_pixel(a0)
+	move.w	#$D8,y_pixel(a0)
 	rts
 ; ===========================================================================
 ; BranchTo4_JmpTo45_DisplaySprite
@@ -78699,7 +77900,7 @@ loc_3AC84:
 	beq.s	return_3ACF0
 	addq.b	#2,routine_secondary(a0)
 	clr.b	collision_flags(a0)
-	move.w	#(screen_height/2)+8,(Camera_Y_pos_bias).w
+	move.w	#(224/2)+8,(Camera_Y_pos_bias).w
 	movea.w	objoff_2C(a0),a1 ; a1=object
 	bset	#status.npc.p2_pushing,status(a1)
 	lea	(MainCharacter).w,a1 ; a1=character
@@ -84214,8 +83415,8 @@ Obj8A_Index:	offsetTable
 ; loc_3EADA:
 Obj8A_Init:
 	addq.b	#2,routine(a0)
-	move.w	#spriteScreenPositionXCentered(0),x_pixel(a0)
-	move.w	#spriteScreenPositionYCentered(0),y_pixel(a0)
+	move.w	#$120,x_pixel(a0)
+	move.w	#$F0,y_pixel(a0)
 	move.l	#Obj8A_MapUnc_3EB4E,mappings(a0)
 	move.w	#make_art_tile($05A0,0,0),art_tile(a0)
 	jsrto	JmpTo65_Adjust2PArtPointer
@@ -86841,8 +86042,8 @@ BuildHUD:
 	bne.s	+
 	addq.w	#2,d1	; set mapping frame for double blink
 +
-	move.w	#spriteScreenPositionX(16),d3	; set X pos
-	move.w	#spriteScreenPositionYCentered(24),d2	; set Y pos
+	move.w	#128+16,d3	; set X pos
+	move.w	#128+136,d2	; set Y pos
 	lea	(HUD_MapUnc_40A9A).l,a1
 	movea.w	#make_art_tile(ArtTile_ArtNem_HUD,0,1),a3	; set art tile and flags
 	add.w	d1,d1
@@ -86880,8 +86081,8 @@ BuildHUD_P1_NoRings:
 	addq.w	#2,d1	; make TIME flash
 ; loc_4088C:
 BuildHUD_P1_Continued:
-	move.w	#spriteScreenPositionX(16),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+24),d2
+	move.w	#$90,d3
+	move.w	#$188,d2
 	lea	(HUD_MapUnc_40BEA).l,a1
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Text_2P,0,1),a3
 	add.w	d1,d1
@@ -86889,8 +86090,8 @@ BuildHUD_P1_Continued:
 	move.w	(a1)+,d1
 	subq.w	#1,d1
 	jsrto	JmpTo_DrawSprite_2P_Loop
-	move.w	#spriteScreenPositionX(56),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2-104),d2
+	move.w	#$B8,d3
+	move.w	#$108,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.b	(Timer_minute).w,d7
@@ -86899,8 +86100,8 @@ BuildHUD_P1_Continued:
 	moveq	#0,d7
 	move.b	(Timer_second).w,d7
 	bsr.w	loc_40938
-	move.w	#spriteScreenPositionX(64),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2-88),d2
+	move.w	#$C0,d3
+	move.w	#$118,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.w	(Ring_count).w,d7
@@ -86909,16 +86110,16 @@ BuildHUD_P1_Continued:
 	bne.s	+
 	tst.b	(Update_HUD_timer).w
 	beq.s	+
-	move.w	#spriteScreenPositionX(144),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+72),d2
+	move.w	#$110,d3
+	move.w	#$1B8,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.b	(Loser_Time_Left).w,d7
 	bsr.w	loc_40938
 +
 	moveq	#4,d1
-	move.w	#spriteScreenPositionX(16),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+24),d2
+	move.w	#$90,d3
+	move.w	#$188,d2
 	lea	(HUD_MapUnc_40BEA).l,a1
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Text_2P,0,1),a3
 	add.w	d1,d1
@@ -87057,8 +86258,8 @@ BuildHUD_P2_NoRings:
 	addq.w	#2,d1
 ; loc_409F8:
 BuildHUD_P2_Continued:
-	move.w	#spriteScreenPositionX(16),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+24)+screen_height,d2
+	move.w	#$90,d3
+	move.w	#$268,d2
 	lea	(HUD_MapUnc_40BEA).l,a1
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Text_2P,0,1),a3
 	add.w	d1,d1
@@ -87066,8 +86267,8 @@ BuildHUD_P2_Continued:
 	move.w	(a1)+,d1
 	subq.w	#1,d1
 	jsrto	JmpTo_DrawSprite_2P_Loop
-	move.w	#spriteScreenPositionX(56),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2-104)+screen_height,d2
+	move.w	#$B8,d3
+	move.w	#$1E8,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.b	(Timer_minute_2P).w,d7
@@ -87076,8 +86277,8 @@ BuildHUD_P2_Continued:
 	moveq	#0,d7
 	move.b	(Timer_second_2P).w,d7
 	bsr.w	loc_40938
-	move.w	#spriteScreenPositionX(64),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2-88)+screen_height,d2
+	move.w	#$C0,d3
+	move.w	#$1F8,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.w	(Ring_count_2P).w,d7
@@ -87086,16 +86287,16 @@ BuildHUD_P2_Continued:
 	bne.s	+
 	tst.b	(Update_HUD_timer_2P).w
 	beq.s	+
-	move.w	#spriteScreenPositionX(144),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+72)+screen_height,d2
+	move.w	#$110,d3
+	move.w	#$298,d2
 	movea.w	#make_art_tile_2p(ArtTile_Art_HUD_Numbers_2P,0,1),a3
 	moveq	#0,d7
 	move.b	(Loser_Time_Left).w,d7
 	bsr.w	loc_40938
 +
 	moveq	#5,d1
-	move.w	#spriteScreenPositionX(16),d3
-	move.w	#spriteScreenPositionY2P(screen_height/2+24)+screen_height,d2
+	move.w	#$90,d3
+	move.w	#$268,d2
 	lea	(HUD_MapUnc_40BEA).l,a1
 	movea.w	#make_art_tile_2p(ArtTile_ArtNem_Powerups,0,1),a3
 	add.w	d1,d1
@@ -88032,7 +87233,7 @@ Debug_TimerNotOver:
 	add.l	d1,d2
 	moveq	#0,d0
 	move.w	(Camera_Max_Y_pos_target).w,d0
-	addi.w	#screen_height-1,d0
+	addi.w	#224-1,d0
 	swap	d0
 	cmp.l	d0,d2
 	blt.s	.maxYPosNotReached
@@ -89820,17 +89021,27 @@ MapEng_SEGA:			BINCLUDE	"mappings/misc/SEGA mappings.eni"
 ;---------------------------------------------------------------------------------------
 MapEng_TitleScreen:		BINCLUDE	"mappings/misc/Mappings for title screen background.eni"
 	even
-MapEng_TitleBack:		BINCLUDE	"mappings/misc/Mappings for title screen background 2.eni" ; title screen background (smaller part, water/horizon)
+MapEng_TitleBack:		BINCLUDE	"data\mappings\titscrbg.eni" ; title screen background (smaller part, water/horizon)
 	even
-MapEng_TitleLogo:		BINCLUDE	"mappings/misc/Sonic the Hedgehog 2 title screen logo mappings.eni"
+MapEng_TitleLogo:		BINCLUDE	"data\mappings\titlescr.eni"
 	even
-ArtNem_Title:			BINCLUDE	"art/nemesis/Main patterns from title screen.nem"
+ArtNem_Title:			BINCLUDE	"data\art\titlescr.nem"
 	even
-ArtNem_TitleSprites:		BINCLUDE	"art/nemesis/Sonic and Tails from title screen.nem"
+ArtNem_TitleSprites:	BINCLUDE	"data\art\sncmlscr.nem"
 	even
 ArtNem_MenuJunk:		BINCLUDE	"art/nemesis/A few menu blocks.nem"
 	even
-
+TS_Wings_Sonic_Mappings: 
+	even					BINCLUDE 	"data/mappings/titlescr.eni" 
+Title_Screen_Bg_Mappings: 
+	even					BINCLUDE 	"data/mappings/titlescrbg.eni" 
+Title_Screen_R_Bg_Mappings: 
+							BINCLUDE 	"data/mappings/titscrb2.eni" 
+Title_Screen_Bg_Wings: 
+	even					BINCLUDE 	"data/art/titlescr.nem" ; Title Screen Wings and background 
+Title_Screen_Sonic_Miles: 
+	even					BINCLUDE 	"data/art/sncmlscr.nem" ; Sonic And Miles in Title Screen
+	
 ;---------------------------------------------------------------------------------------
 ; General Level Assets
 ;---------------------------------------------------------------------------------------
